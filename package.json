@@ -1,0 +1,135 @@
+{
+  "name": "side-tree",
+  "displayName": "Side Tree",
+  "description": "A custom tree view in the sidebar to organize and navigate your project items.",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "keybindings": [
+      {
+        "command": "sideTreeView.renameItem",
+        "key": "F2",
+        "when": "focusedView == sideTreeView || focusedView == sideTreeViewInExplorer"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "SideTreeContainer",
+          "title": "SideTree",
+          "icon": "media/tree-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "SideTreeContainer": [
+        {
+          "id": "sideTreeView",
+          "name": "SideTree",
+          "icon": "media/tree-icon.svg"
+        }
+      ],
+      "explorer": [
+        {
+          "icon": "media/tree-icon.svg",
+          "id": "sideTreeViewInExplorer",
+          "name": "SideTree in Explorer"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "sideTreeView.itemClicked",
+        "title": "Item Clicked"
+      },
+      {
+        "command": "sideTreeView.addFolder",
+        "title": "Add New Folder"
+      },
+      {
+        "command": "sideTreeView.removeItem",
+        "title": "Remove Item"
+      },
+      {
+        "command": "sideTreeView.renameItem",
+        "title": "Rename Item"
+      },
+      {
+        "command": "sideTreeView.addItemFromTab",
+        "title": "Add to SideTree"
+      },
+      {
+        "command": "sideTreeView.addItemFromExplorer",
+        "title": "Add to SideTree"
+      }
+    ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "sideTreeView.renameItem",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "1_modification@1"
+        },
+        {
+          "command": "sideTreeView.removeItem",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "1_modification@2"
+        }
+      ],
+      "view/context": [
+        {
+          "command": "sideTreeView.addFolder",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "1_modification"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "sideTreeView.addFolder",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "navigation"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "sideTreeView.addItemFromTab",
+          "when": "resourceScheme == file",
+          "group": "1_modification"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "sideTreeView.addItemFromExplorer",
+          "when": "resourceScheme == file",
+          "group": "1_modification"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "eslint": "^9.25.1",
+    "typescript": "^5.8.3",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.5.2"
+  }
+}
