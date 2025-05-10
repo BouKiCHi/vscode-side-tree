@@ -3,6 +3,7 @@
   "displayName": "Side Tree",
   "description": "A custom tree view in the sidebar to organize and navigate your project items.",
   "version": "0.0.1",
+  "publisher": "boukichi",
   "engines": {
     "vscode": "^1.100.0"
   },
