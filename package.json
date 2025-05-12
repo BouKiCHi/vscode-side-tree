@@ -1,8 +1,8 @@
 {
   "name": "side-tree",
-  "displayName": "Side Tree",
+  "displayName": "SideTree",
   "description": "A custom tree view in the sidebar to organize and navigate your project items.",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "boukichi",
   "engines": {
     "vscode": "^1.100.0"
@@ -59,15 +59,23 @@
       },
       {
         "command": "sideTreeView.addFolder",
-        "title": "Add New Folder"
+        "title": "New Folder"
+      },
+      {
+        "command": "sideTreeView.reloadData",
+        "title": "Reload Data"
+      },
+      {
+        "command": "sideTreeView.importData",
+        "title": "Import Data"
       },
       {
         "command": "sideTreeView.removeItem",
-        "title": "Remove Item"
+        "title": "Remove"
       },
       {
         "command": "sideTreeView.renameItem",
-        "title": "Rename Item"
+        "title": "Change Label"
       },
       {
         "command": "sideTreeView.addItemFromTab",
@@ -102,7 +110,17 @@
         {
           "command": "sideTreeView.addFolder",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "sideTreeView.reloadData",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "sideTreeView.importData",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "navigation@3"
         }
       ],
       "editor/title/context": [

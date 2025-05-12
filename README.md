@@ -1,6 +1,6 @@
-# Side Tree (English)
+# SideTree (English)
 
-**Side Tree** is a Visual Studio Code extension that displays files in your workspace in a dedicated tree view. It allows you to organize folders differently from the file system, enabling quick access to your files.
+**SideTree** is a Visual Studio Code extension that displays files in your workspace in a dedicated tree view. It allows you to organize folders differently from the file system, enabling quick access to your files.
 
 ## Features
 
@@ -8,7 +8,7 @@
 
 ## Usage
 
-After installing the extension, the "Side Tree" view will appear in the VS Code Activity Bar. Click its icon to open the tree view.
+After installing the extension, the "SideTree" view will appear in the VS Code Activity Bar. Click its icon to open the tree view.
 
 ## Release Notes
 
@@ -16,11 +16,11 @@ Changes for this project are documented in the [CHANGELOG.md](CHANGELOG.md) file
 
 ---
 
-# Side Tree (日本語)
+# SideTree (日本語)
 
-# Side Tree
+# SideTree
 
-**Side Tree** は、ワークスペース内のファイルを専用のツリービューで表示し、ファイルシステムとは異なるフォルダ整理することで、素早く開くことができる Visual Studio Code 拡張機能です。
+**SideTree** は、ワークスペース内のファイルを専用のツリービューで表示し、ファイルシステムとは異なるフォルダ整理することで、素早く開くことができる Visual Studio Code 拡張機能です。
 
 ## 主な機能
 
@@ -28,7 +28,7 @@ Changes for this project are documented in the [CHANGELOG.md](CHANGELOG.md) file
 
 ## 使い方
 
-拡張機能をインストールすると、VSCode のアクティビティバーに「Side Tree」ビューが表示されます。そのアイコンをクリックしてツリービューを開いてください。
+拡張機能をインストールすると、VSCode のアクティビティバーに「SideTree」ビューが表示されます。そのアイコンをクリックしてツリービューを開いてください。
 
 ## リリースノート
 
