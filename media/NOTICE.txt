@@ -1,0 +1,6 @@
+一部アイコンは、Material Iconsを使用しています。
+
+https://github.com/google/material-design-icons
+
+ライセンスへのリンク
+https://github.com/google/material-design-icons?tab=Apache-2.0-1-ov-file#readme

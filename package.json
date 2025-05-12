@@ -2,7 +2,7 @@
   "name": "side-tree",
   "displayName": "SideTree",
   "description": "A custom tree view in the sidebar to organize and navigate your project items.",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "publisher": "boukichi",
   "engines": {
     "vscode": "^1.100.0"
@@ -59,15 +59,27 @@
       },
       {
         "command": "sideTreeView.addFolder",
-        "title": "New Folder"
+        "title": "New Folder",
+        "icon":{
+          "dark": "media/create_new_folder_dark.svg",
+          "light": "media/create_new_folder.svg"
+        }
       },
       {
         "command": "sideTreeView.reloadData",
-        "title": "Reload Data"
+        "title": "Reload Data",
+          "icon":{
+          "dark": "media/refresh_dark.svg",
+          "light": "media/refresh.svg"
+        }
       },
       {
         "command": "sideTreeView.importData",
-        "title": "Import Data"
+        "title": "Import Data",
+        "icon":{
+          "dark": "media/place_item_dark.svg",
+          "light": "media/place_item.svg"
+        }
       },
       {
         "command": "sideTreeView.removeItem",
