@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.0.4
+- Behavior adjustments
+
+## 0.0.3
+- Various fixes and improvements
+
 ## 0.0.2
 - Ensured no spaces in the name "SideTree" (to avoid issues with searching, etc.).
 - Implemented support for deleting multiple items.

@@ -193,12 +193,6 @@ function getFolderId(selectedItems: readonly MyTreeItem[]): number {
   return folderId;
 }
 
-// ファイルが開かれているか？
-async function isFileOpen(filePath: string): Promise<boolean> {
-  const documents = vscode.workspace.textDocuments;
-  return documents.some(doc => doc.uri.fsPath === filePath);
-}
-
 export function deactivate() { }
 
 class MyDnDController implements vscode.TreeDragAndDropController<MyTreeItem> {
@@ -238,9 +232,10 @@ class MyDnDController implements vscode.TreeDragAndDropController<MyTreeItem> {
       const fileUris = uris.map((uri: string) => vscode.Uri.parse(uri));
 
       for (const uri of fileUris) {
+        const targetFolderId = getTargetFolderItemId(target);
         // console.log(`Dropped file: ${uri.fsPath}`);
         const fileName = path.basename(uri.fsPath);
-        this.treeDataProvider.addItem(fileName, false, uri.fsPath);
+        this.treeDataProvider.addItemWithFolderId(targetFolderId, fileName, false, uri.fsPath);
       }
     }
   }
@@ -392,7 +387,7 @@ class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     }
     for(const moveItem of moveItems) {
       moveItem.parentId = targetParentId;
-      targetNodeList.splice(targetIndex + 1, 0, moveItem);
+      targetNodeList.splice(targetIndex, 0, moveItem);
       targetIndex++;
     };
 
@@ -567,4 +562,19 @@ class MyTreeItem extends vscode.TreeItem {
       };
     }
   }
+}
+
+// 対象となるフォルダIDの取得
+function getTargetFolderItemId(target: MyTreeItem | undefined) {
+  if (!target) {
+    return 0;
+  }
+
+  return target.isFolder ? target.itemId : target.parentId;
+}
+
+// ファイルが開かれているか？
+async function isFileOpen(filePath: string): Promise<boolean> {
+  const documents = vscode.workspace.textDocuments;
+  return documents.some(doc => doc.uri.fsPath === filePath);
 }
