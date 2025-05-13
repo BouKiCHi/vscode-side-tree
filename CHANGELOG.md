@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.0.5
+- Fixed an issue where dropping a folder onto itself would cause it to disappear.
+- Removed the display of rename information.
+- Implemented a dialog to appear during import.
+- Moved the import functionality from the navigation to the right-click context menu.
+- Added functionality to create a folder when right-clicking on a tree item.
+- Implemented the ability to copy the path via the right-click context menu.
+- Changed the behavior when opening a document.
+
 ## 0.0.4
 - Behavior adjustments
 

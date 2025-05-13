@@ -2,7 +2,7 @@
   "name": "side-tree",
   "displayName": "SideTree",
   "description": "A custom tree view in the sidebar to organize and navigate your project items.",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "publisher": "boukichi",
   "engines": {
     "vscode": "^1.100.0"
@@ -90,6 +90,10 @@
         "title": "Change Label"
       },
       {
+        "command": "sideTreeView.copyPath",
+        "title": "Copy Path"
+      },
+      {
         "command": "sideTreeView.addItemFromTab",
         "title": "Add to SideTree"
       },
@@ -109,6 +113,21 @@
           "command": "sideTreeView.removeItem",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "1_modification@2"
+        },
+        {
+          "command": "sideTreeView.addFolder",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "1_modification@3"
+        },
+        {
+          "command": "sideTreeView.importData",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "1_modification@4"
+        },
+        {
+          "command": "sideTreeView.copyPath",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "6_copypath@1"
         }
       ],
       "view/context": [
@@ -128,11 +147,6 @@
           "command": "sideTreeView.reloadData",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "navigation@2"
-        },
-        {
-          "command": "sideTreeView.importData",
-          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
-          "group": "navigation@3"
         }
       ],
       "editor/title/context": [

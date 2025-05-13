@@ -1,0 +1,13 @@
+[
+  {
+    "name": "SideTree Folder",
+    "isFolder": true,
+    "children": []
+  },
+  {
+    "name": "CHANGELOG.md",
+    "isFolder": false,
+    "filePath": "CHANGELOG.md",
+    "children": []
+  }
+]

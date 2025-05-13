@@ -60,10 +60,14 @@ export function activate(context: vscode.ExtensionContext) {
         try {
           const uri = getUriFromPath(args.filePath);
           if (uri) {
-            if (await isFileOpen(uri.fsPath)) {
-              return;
-            }
-            await vscode.commands.executeCommand('vscode.open', uri);
+            // ドキュメントを開く
+            vscode.workspace.openTextDocument(uri).then(doc => {
+              vscode.window.showTextDocument(doc, {
+                preserveFocus: true
+              });
+            }, err => {
+              vscode.window.showErrorMessage(`Error opening file: ${err}`);
+            });
           } else {
             vscode.window.showInformationMessage(`Failed to open file: ${args.filePath}`);
           }
@@ -98,6 +102,18 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
+      // インポートするかを聞く
+      const answer = await vscode.window.showInformationMessage(
+        'Do you want to import from clipboard?',
+        { modal: true },
+        'Yes', 'No'
+      );
+
+      if (answer !== 'Yes') {
+        return;
+      }
+
+      // フォルダIDの取得
       const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
       const folderId = getFolderId(selectedItems);
 
@@ -150,6 +166,16 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // パスのコピーコマンドの機能
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.copyPath', async (item: MyTreeItem) => {
+      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
+      const paths = selectedItems.filter(x => x.filePath).map(x => x.filePath);
+      await vscode.env.clipboard.writeText(paths.join('\n'));
+    })
+  );
+
+
   // アイテムリネームコマンドの登録
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.renameItem', async (item: MyTreeItem) => {
@@ -172,9 +198,9 @@ export function activate(context: vscode.ExtensionContext) {
       });
 
       if (newLabel) {
-        const oldLabel = targetItem.label;
+        // const oldLabel = targetItem.label;
         treeDataProvider.changeLabel(targetItem.itemId, newLabel);
-        vscode.window.showInformationMessage(`Change Label from "${oldLabel}" to "${newLabel}"`);
+        // vscode.window.showInformationMessage(`Change Label from "${oldLabel}" to "${newLabel}"`);
       }
     })
   );
@@ -204,10 +230,12 @@ class MyDnDController implements vscode.TreeDragAndDropController<MyTreeItem> {
   readonly dragMimeTypes = ['application/vnd.code.tree.sideTreeView', 'text/uri-list'];
 
 
+  // ドラッグ操作
   async handleDrag(source: MyTreeItem[], dataTransfer: vscode.DataTransfer, token: vscode.CancellationToken) {
     dataTransfer.set('application/vnd.code.tree.sideTreeView', new vscode.DataTransferItem(source.map(item => item.itemId)));
   }
 
+  // ドロップ操作
   async handleDrop(target: MyTreeItem | undefined, dataTransfer: vscode.DataTransfer, token: vscode.CancellationToken) {
     const raw = dataTransfer.get('application/vnd.code.tree.sideTreeView')?.value;
 
@@ -367,7 +395,9 @@ class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
   moveItemsTo(targetItemId: number, itemIds: number[]) {
     const moveItems = this.removeItems(itemIds);
     for(const moveItem of moveItems) {
-      moveItem.parentId = targetItemId;
+      if (moveItem.itemId !== targetItemId) {
+        moveItem.parentId = targetItemId;
+      }
       this.appendNode(moveItem);
     }
     this.update();
@@ -401,6 +431,8 @@ class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     for(const itemId of itemIds) {
         const item = this.getItemByItemId(itemId);
         items.push(item);
+
+        // フォルダから削除する
         const parentId = item.parentId;
         const nodeList = this.nodes[parentId];
         const index = nodeList.findIndex(x => x.itemId === itemId);
