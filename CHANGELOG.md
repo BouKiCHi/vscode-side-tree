@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.1.0
+- Added search functionality
+- Refactored source code
+
 ## 0.0.5
 - Fixed an issue where dropping a folder onto itself would cause it to disappear.
 - Removed the display of rename information.

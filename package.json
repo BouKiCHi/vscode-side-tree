@@ -2,7 +2,7 @@
   "name": "side-tree",
   "displayName": "SideTree",
   "description": "A custom tree view in the sidebar to organize and navigate your project items.",
-  "version": "0.0.5",
+  "version": "0.1.0",
   "publisher": "boukichi",
   "engines": {
     "vscode": "^1.100.0"
@@ -58,8 +58,23 @@
         "title": "Item Clicked"
       },
       {
+        "command": "sideTreeView.findItem",
+        "title": "Find Item",
+        "category": "SideTree"
+      },
+      {
         "command": "sideTreeView.addFolder",
         "title": "New Folder",
+        "category": "SideTree",
+        "icon":{
+          "dark": "media/create_new_folder_dark.svg",
+          "light": "media/create_new_folder.svg"
+        }
+      },
+      {
+        "command": "sideTreeView.addFolderInExplorer",
+        "title": "New Folder",
+        "category": "SideTree",
         "icon":{
           "dark": "media/create_new_folder_dark.svg",
           "light": "media/create_new_folder.svg"
@@ -68,6 +83,7 @@
       {
         "command": "sideTreeView.reloadData",
         "title": "Reload Data",
+        "category": "SideTree",
           "icon":{
           "dark": "media/refresh_dark.svg",
           "light": "media/refresh.svg"
@@ -76,6 +92,7 @@
       {
         "command": "sideTreeView.importData",
         "title": "Import Data",
+        "category": "SideTree",
         "icon":{
           "dark": "media/place_item_dark.svg",
           "light": "media/place_item.svg"
@@ -83,22 +100,27 @@
       },
       {
         "command": "sideTreeView.removeItem",
+        "category": "SideTree",
         "title": "Remove"
       },
       {
         "command": "sideTreeView.renameItem",
+        "category": "SideTree",
         "title": "Change Label"
       },
       {
         "command": "sideTreeView.copyPath",
+        "category": "SideTree",
         "title": "Copy Path"
       },
       {
         "command": "sideTreeView.addItemFromTab",
+        "category": "SideTree",
         "title": "Add to SideTree"
       },
       {
         "command": "sideTreeView.addItemFromExplorer",
+        "category": "SideTree",
         "title": "Add to SideTree"
       }
     ],
@@ -116,7 +138,12 @@
         },
         {
           "command": "sideTreeView.addFolder",
-          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "when": "view == sideTreeView",
+          "group": "1_modification@3"
+        },
+        {
+          "command": "sideTreeView.addFolderInExplorer",
+          "when": "view == sideTreeViewInExplorer",
           "group": "1_modification@3"
         },
         {
@@ -130,17 +157,15 @@
           "group": "6_copypath@1"
         }
       ],
-      "view/context": [
-        {
-          "command": "sideTreeView.addFolder",
-          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
-          "group": "1_modification"
-        }
-      ],
       "view/title": [
         {
           "command": "sideTreeView.addFolder",
-          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "when": "view == sideTreeView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "sideTreeView.addFolderInExplorer",
+          "when": "view == sideTreeViewInExplorer",
           "group": "navigation@1"
         },
         {
