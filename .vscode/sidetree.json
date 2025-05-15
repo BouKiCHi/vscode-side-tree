@@ -1,13 +1,20 @@
 [
   {
-    "name": "SideTree Folder",
-    "isFolder": true,
+    "name": "README.md",
+    "isFolder": false,
+    "filePath": "README.md",
     "children": []
   },
   {
     "name": "CHANGELOG.md",
     "isFolder": false,
     "filePath": "CHANGELOG.md",
+    "children": []
+  },
+  {
+    "name": "package.json",
+    "isFolder": false,
+    "filePath": "package.json",
     "children": []
   }
 ]

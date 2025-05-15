@@ -3,6 +3,7 @@ import * as path from 'path';
 import { MyTreeDataProvider } from './MyTreeDataProvider';
 import { MyTreeItem } from './MyTreeItem';
 import { MyDnDController } from './MyDnDController';
+import { convertToRelative } from './convertToRelative';
 
 export function activate(context: vscode.ExtensionContext) {
   // TreeDataProviderの実装
@@ -25,23 +26,7 @@ export function activate(context: vscode.ExtensionContext) {
       label: string, collapsibleState: vscode.TreeItemCollapsibleState, filePath?: string, itemId?: number
     }) => {
       if (args.filePath) {
-        try {
-          const uri = getUriFromPath(args.filePath);
-          if (uri) {
-            // ドキュメントを開く
-            vscode.workspace.openTextDocument(uri).then(doc => {
-              vscode.window.showTextDocument(doc, {
-                preserveFocus: true
-              });
-            }, err => {
-              vscode.window.showErrorMessage(`Error opening file: ${err}`);
-            });
-          } else {
-            vscode.window.showInformationMessage(`Failed to open file: ${args.filePath}`);
-          }
-        } catch (error) {
-          vscode.window.showInformationMessage(`Failed to open file: ${args.filePath}`);
-        }
+        await openDocument(args.filePath);
       }
     })
   );
@@ -77,16 +62,19 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.findItem', async () => {
       const quickPick = vscode.window.createQuickPick();
+      quickPick.placeholder = 'Find Item in SideTree';
       quickPick.matchOnDetail = true;
       const searchItems = treeDataProvider.getSearchItems();
       quickPick.items = searchItems;
       quickPick.onDidChangeSelection(selection => {
         if (selection.length) {
           quickPick.hide();
-          // vscode.commands.executeCommand("sideTreeView.focus");
           const selectedItemId = (selection[0] as MyTreeQuickPickItem).itemId;
           const item = treeDataProvider.getItemByItemId(selectedItemId);
           treeView.reveal(item, { focus: true, expand: true });
+          if (item.filePath) {
+            openDocument(item.filePath);
+          }
         }
       });
       quickPick.onDidHide(() => quickPick.dispose());
@@ -130,6 +118,7 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // ファイルを追加する
   async function appendFile(resource: vscode.Uri) {
       const filePath = resource.fsPath;
       const fileName = path.basename(filePath);
@@ -139,6 +128,21 @@ export function activate(context: vscode.ExtensionContext) {
       await treeDataProvider.addItemWithFolderId(folderId, fileName, false, filePath);
       vscode.window.showInformationMessage(`Added ${fileName} to SideTree`);
   }
+
+  // タブのファイルを表示する
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.revealItem', async (resource: vscode.Uri) => {
+      if (resource && resource.scheme === 'file') {
+        const filePath = resource.fsPath;
+        const relativePath = convertToRelative(filePath);
+        
+        const item = treeDataProvider.getItemByPath(relativePath);
+        if (item) {
+          treeView.reveal(item, { focus: true, expand: true });
+        }
+      }
+    })
+  );
 
   // タブからアイテム追加コマンドの登録
   context.subscriptions.push(
@@ -207,6 +211,48 @@ export function activate(context: vscode.ExtensionContext) {
       }
     })
   );
+
+  // 上に移動
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.moveItemUp', async (item: MyTreeItem) => {
+      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
+      if (!selectedItems.length) {
+        return;
+      }
+
+      const targetItem = selectedItems[0];
+      treeDataProvider.moveItemUp(targetItem.itemId);
+    })  
+  );
+
+  // 下に移動
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.moveItemDown', async (item: MyTreeItem) => {
+      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
+      if (!selectedItems.length) {
+        return;
+      }
+
+      const targetItem = selectedItems[0];
+      treeDataProvider.moveItemDown(targetItem.itemId);
+    })
+  );
+
+}
+
+// タブを開く
+async function openDocument(filePath: string) {
+  try {
+    const uri = getUriFromPath(filePath);
+    if (uri) {
+      const doc = await vscode.workspace.openTextDocument(uri);
+      await vscode.window.showTextDocument(doc, { preserveFocus: true });
+    } else {
+      vscode.window.showInformationMessage(`Failed to open file: ${filePath}`);
+    }
+  } catch (error) {
+    vscode.window.showInformationMessage(`Failed to open file: ${filePath}`);
+  }
 }
 
 export function deactivate() { }

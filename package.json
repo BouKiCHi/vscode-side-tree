@@ -2,7 +2,7 @@
   "name": "side-tree",
   "displayName": "SideTree",
   "description": "A custom tree view in the sidebar to organize and navigate your project items.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "boukichi",
   "engines": {
     "vscode": "^1.100.0"
@@ -24,6 +24,16 @@
       {
         "command": "sideTreeView.renameItem",
         "key": "F2",
+        "when": "focusedView == sideTreeView || focusedView == sideTreeViewInExplorer"
+      },
+      {
+        "command": "sideTreeView.moveItemUp",
+        "key": "alt+up",
+        "when": "focusedView == sideTreeView || focusedView == sideTreeViewInExplorer"
+      },
+      {
+        "command": "sideTreeView.moveItemDown",
+        "key": "alt+down",
         "when": "focusedView == sideTreeView || focusedView == sideTreeViewInExplorer"
       }
     ],
@@ -122,6 +132,21 @@
         "command": "sideTreeView.addItemFromExplorer",
         "category": "SideTree",
         "title": "Add to SideTree"
+      },
+      {
+        "command": "sideTreeView.revealItem",
+        "category": "SideTree",
+        "title": "Reveal Item in SideTree"
+      },
+      {
+        "command": "sideTreeView.moveItemUp",
+        "category": "SideTree",
+        "title": "Move Item Up"
+      },
+      {
+        "command": "sideTreeView.moveItemDown",
+        "category": "SideTree",
+        "title": "Move Item Down"
       }
     ],
     "menus": {
@@ -155,6 +180,16 @@
           "command": "sideTreeView.copyPath",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "6_copypath@1"
+        },
+        {
+          "command": "sideTreeView.moveItemUp",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "2_move_modification@1"
+        },
+        {
+          "command": "sideTreeView.moveItemDown",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "2_move_modification@2"
         }
       ],
       "view/title": [
@@ -177,6 +212,11 @@
       "editor/title/context": [
         {
           "command": "sideTreeView.addItemFromTab",
+          "when": "resourceScheme == file",
+          "group": "1_modification"
+        },
+        {
+          "command": "sideTreeView.revealItem",
           "when": "resourceScheme == file",
           "group": "1_modification"
         }

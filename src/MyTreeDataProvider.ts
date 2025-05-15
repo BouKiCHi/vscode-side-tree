@@ -3,12 +3,12 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { MyTreeItem } from './MyTreeItem';
 import { MyTreeQuickPickItem } from './extension';
+import { convertToRelative } from './convertToRelative';
 
 // ツリーデータプロバイダ
 export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
   private jsonFilename: string = 'sidetree.json';
-
 
   private _onDidChangeTreeData: vscode.EventEmitter<MyTreeItem | undefined | null | void> = new vscode.EventEmitter<MyTreeItem | undefined | null | void>();
   readonly onDidChangeTreeData: vscode.Event<MyTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
@@ -30,6 +30,17 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     this.load();
   }
 
+  // パスからアイテムを取得する
+  getItemByPath(filePath: string): MyTreeItem | undefined {
+    for (const key in this.nodeTable) {
+      const item = this.nodeTable[key];
+      if (item.filePath === filePath) {
+        return item;
+      }
+    }
+    return undefined;
+  }
+
   // 検索用データを取得
   getSearchItems(): MyTreeQuickPickItem[] {
     const items: MyTreeQuickPickItem[] = [];
@@ -41,6 +52,7 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     return items;
   }
 
+  // アイテムのパスを取得
   getItemPath(itemId: number) {
     const item = this.getItemByItemId(itemId);
     if (!item) {
@@ -59,9 +71,7 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     }
 
     return '/' + pathSegments.join('/');
-    
   }
-  
 
   // ノードに追加する
   appendNode(item: MyTreeItem) {
@@ -81,31 +91,11 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
   // アイテム作成
   createItem(label: string, isFolder: boolean, filePath?: string): MyTreeItem {
     if (filePath) {
-      filePath = this.convertToRelative(filePath);
+      filePath = convertToRelative(filePath);
     }
     return new MyTreeItem(this.itemIdCount++, label, isFolder, this.commandId, filePath);
   }
 
-  // 相対パス変換
-  convertToRelative(filePath: string): string {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-
-    if (!workspaceFolder) {
-      return filePath;
-    }
-
-    const workspacePath = workspaceFolder.uri.fsPath;
-
-    // パスの先頭が一致する場合
-    if (filePath.startsWith(workspacePath)) {
-      // 相対パスに変換
-      let relativePath = path.relative(workspacePath, filePath);
-      // パス区切りを変換
-      relativePath = relativePath.replace(/\\/g, '/');
-      return relativePath;
-    }
-    return filePath;
-  }
 
   // アイテム取得
   getTreeItem(element: MyTreeItem): vscode.TreeItem {
@@ -209,6 +199,54 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     return items;
   }
 
+  // アイテムを現在のフォルダで一つ上に移動する
+  moveItemUp(itemId: number) {
+    const item = this.getItemByItemId(itemId);
+    if (!item) {
+      return;
+    }
+
+    const parentId = item.parentId;
+    const nodeList = this.nodes[parentId];
+    const currentIndex = nodeList.findIndex(x => x.itemId === itemId);
+
+    // 最上段の場合は何もしない
+    if (currentIndex <= 0) {
+      return;
+    }
+
+    // 要素を入れ替える
+    const prevItem = nodeList[currentIndex - 1];
+    nodeList[currentIndex - 1] = item;
+    nodeList[currentIndex] = prevItem;
+
+    this.update();
+  }
+
+  // アイテムを現在のフォルダで一つ下に移動する
+  moveItemDown(itemId: number) {
+    const item = this.getItemByItemId(itemId);
+    if (!item) {
+      return;
+    }
+
+    const parentId = item.parentId;
+    const nodeList = this.nodes[parentId];
+    const currentIndex = nodeList.findIndex(x => x.itemId === itemId);
+
+    // 最下段の場合は何もしない
+    if (currentIndex >= nodeList.length - 1) {
+      return;
+    }
+
+    // 要素を入れ替える
+    const nextItem = nodeList[currentIndex + 1];
+    nodeList[currentIndex + 1] = item;
+    nodeList[currentIndex] = nextItem;
+
+    this.update();
+  }
+
   // アイテム取得
   getItemByItemId(itemId: number): MyTreeItem {
     return this.nodeTable[itemId];
@@ -258,6 +296,19 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     const filePath = this.getJsonFilename();
     const dirPath = path.dirname(filePath);
     await fs.promises.mkdir(dirPath, { recursive: true });
+
+    if (!fs.existsSync(filePath)) {
+      // ダイアログで確認する、No/Cancelの場合は保存しない
+      const answer = await vscode.window.showInformationMessage(
+        'Do you want to save current data?',
+        { modal: true },
+        'Yes', 'No'
+      );
+
+      if (answer !== 'Yes') {
+        return;
+      }
+    }
 
     const data = this.prepareSerializableNode(0);
     await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');

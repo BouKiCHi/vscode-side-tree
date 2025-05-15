@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.1.1
+- Items selected from search results now also open in a new tab.
+- Added the ability to move items up and down.
+- Now prompts to save data on the first save.
+
 ## 0.1.0
 - Added search functionality
 - Refactored source code
