@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.1.2
+- Improved path separator handling.
+- Fixed an issue where a newline character was inserted during drop.
+- Improved information display when adding or deleting items.
+
 ## 0.1.1
 - Items selected from search results now also open in a new tab.
 - Added the ability to move items up and down.

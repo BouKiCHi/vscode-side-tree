@@ -126,7 +126,8 @@ export function activate(context: vscode.ExtensionContext) {
       const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
       const folderId = getFolderId(selectedItems);
       await treeDataProvider.addItemWithFolderId(folderId, fileName, false, filePath);
-      vscode.window.showInformationMessage(`Added ${fileName} to SideTree`);
+      const folderPath = treeDataProvider.getItemPath(folderId);
+      vscode.window.showInformationMessage(`Added ${fileName} to ${folderPath}`);
   }
 
   // タブのファイルを表示する
@@ -164,28 +165,38 @@ export function activate(context: vscode.ExtensionContext) {
 
   // アイテム削除コマンドの登録
   context.subscriptions.push(
-    vscode.commands.registerCommand('sideTreeView.removeItem', async (item: MyTreeItem) => {
+    vscode.commands.registerCommand('sideTreeView.removeItem', async (menuItem: MyTreeItem) => {
       const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
-      for(const selectedItem of selectedItems) {
-        treeDataProvider.removeItem(selectedItem);
+      const list = getSelectedItems(menuItem, selectedItems);
+      const labels : { [key: string]: boolean } = {};
+      const dirs : { [key: string]: boolean } = {};
+      for(const item of list) {
+        const folderPath = treeDataProvider.getItemPath(item.parentId);
+        dirs[folderPath] = true;
+        labels[item.label] = true;
+        treeDataProvider.removeItem(item.itemId);
       }
 
-      vscode.window.showInformationMessage(`Removed ${item.label} from SideTree`);
+      const joinPaths = Object.keys(dirs).join(',');
+      const joinLabels = Object.keys(labels).join(',');
+
+      vscode.window.showInformationMessage(`Removed ${joinLabels} from ${joinPaths}`);
     })
   );
 
   // パスのコピーコマンドの機能
   context.subscriptions.push(
-    vscode.commands.registerCommand('sideTreeView.copyPath', async (item: MyTreeItem) => {
+    vscode.commands.registerCommand('sideTreeView.copyPath', async (menuItem: MyTreeItem) => {
       const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
-      const paths = selectedItems.filter(x => x.filePath).map(x => x.filePath);
+      const list = getSelectedItems(menuItem, selectedItems);
+      const paths = list.filter(x => x.filePath).map(x => x.filePath);
       await vscode.env.clipboard.writeText(paths.join('\n'));
     })
   );
 
   // アイテムリネームコマンドの登録
   context.subscriptions.push(
-    vscode.commands.registerCommand('sideTreeView.renameItem', async (item: MyTreeItem) => {
+    vscode.commands.registerCommand('sideTreeView.renameItem', async (menuItem: MyTreeItem) => {
       const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
       if (!selectedItems.length) {
         return;
@@ -214,27 +225,23 @@ export function activate(context: vscode.ExtensionContext) {
 
   // 上に移動
   context.subscriptions.push(
-    vscode.commands.registerCommand('sideTreeView.moveItemUp', async (item: MyTreeItem) => {
+    vscode.commands.registerCommand('sideTreeView.moveItemUp', async (menuItem: MyTreeItem) => {
       const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
-      if (!selectedItems.length) {
-        return;
+      const list = getSelectedItems(menuItem, selectedItems);
+      for(const item of list) {
+        treeDataProvider.moveItemUp(item.itemId);
       }
-
-      const targetItem = selectedItems[0];
-      treeDataProvider.moveItemUp(targetItem.itemId);
     })  
   );
 
   // 下に移動
   context.subscriptions.push(
-    vscode.commands.registerCommand('sideTreeView.moveItemDown', async (item: MyTreeItem) => {
+    vscode.commands.registerCommand('sideTreeView.moveItemDown', async (menuItem: MyTreeItem) => {
       const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
-      if (!selectedItems.length) {
-        return;
+      const list = getSelectedItems(menuItem, selectedItems);
+      for(const item of list) {
+        treeDataProvider.moveItemDown(item.itemId);
       }
-
-      const targetItem = selectedItems[0];
-      treeDataProvider.moveItemDown(targetItem.itemId);
     })
   );
 
@@ -257,6 +264,26 @@ async function openDocument(filePath: string) {
 
 export function deactivate() { }
 
+// 選択用アイテムの取得
+function getSelectedItems(menuItem: MyTreeItem|undefined, itemList: readonly MyTreeItem[]): readonly MyTreeItem[] {
+  if (!menuItem) {
+    return itemList;
+  }
+
+  console.log(menuItem, itemList);
+  if (isItemInList(menuItem, itemList)) {
+    return itemList;
+  }
+
+  return [menuItem];
+}
+
+// アイテムがリストにあるか
+function isItemInList(menuItem: MyTreeItem, list: readonly MyTreeItem[]) {
+  return list.some(x => x.itemId === menuItem.itemId);
+};
+
+// インターフェース
 export interface MyTreeQuickPickItem extends vscode.QuickPickItem {
   itemId: number;
 }

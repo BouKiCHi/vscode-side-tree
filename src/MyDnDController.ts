@@ -39,7 +39,9 @@ export class MyDnDController implements vscode.TreeDragAndDropController<MyTreeI
     // ファイルドロップ
     const uriList = dataTransfer.get('text/uri-list');
     if (uriList) {
-      const uris = uriList.value.split('\n').filter((line: string) => line && !line.startsWith('#'));
+      const value = uriList.value.replaceAll('\r\n', '\n');
+
+      const uris = value.split('\n').filter((line: string) => line && !line.startsWith('#'));
       const fileUris = uris.map((uri: string) => vscode.Uri.parse(uri));
 
       for (const uri of fileUris) {

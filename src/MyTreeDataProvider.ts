@@ -54,6 +54,11 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
   // アイテムのパスを取得
   getItemPath(itemId: number) {
+    if (itemId === 0) {
+      return '/';
+    }
+
+    // 取得できない場合がある？
     const item = this.getItemByItemId(itemId);
     if (!item) {
       return '';
@@ -129,15 +134,15 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
   }
 
   // アイテム削除
-  removeItem(item: MyTreeItem, notifyChanged: boolean = true) {
-    this.removeItems([item.itemId]);
+  removeItem(itemId: number, notifyChanged: boolean = true) {
+    this.removeItems([itemId]);
 
     // フォルダの場合
-    if (this.nodes[item.itemId]) {
-      for (const childItem of this.nodes[item.itemId]) {
-        this.removeItem(childItem, false);
+    if (this.nodes[itemId]) {
+      for (const childItem of this.nodes[itemId]) {
+        this.removeItem(childItem.itemId, false);
       }
-      delete this.nodes[item.itemId];
+      delete this.nodes[itemId];
     }
     if (notifyChanged) {
       this.update();
