@@ -1,14 +1,11 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { MyTreeItem } from './MyTreeItem';
 import { MyTreeQuickPickItem } from './extension';
 import { convertToRelative } from './convertToRelative';
+import { SideTreeDataManager } from './SideTreeDataManager';
 
 // ツリーデータプロバイダ
 export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
-
-  private jsonFilename: string = 'sidetree.json';
 
   private _onDidChangeTreeData: vscode.EventEmitter<MyTreeItem | undefined | null | void> = new vscode.EventEmitter<MyTreeItem | undefined | null | void>();
   readonly onDidChangeTreeData: vscode.Event<MyTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
@@ -18,15 +15,16 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
   // ツリーデータのストア
   private nodes: { [itemId: number]: MyTreeItem[]; } = {};
+
+  // 一次元構造の配列
   private nodeTable: { [itemId: number]: MyTreeItem; } = {};
 
   // コンストラクタ
-  constructor() {
+  constructor(private dataManager: SideTreeDataManager) {
     // ルートノード
     this.nodes[0] = [];
     const item = this.createItem('SideTree Folder', true);
     this.appendNode(item);
-    this.checkOldJsonFile();
     this.load();
   }
 
@@ -161,7 +159,7 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     this.update();
   }
 
-  // アイテムをターゲットの下に移動する
+  // アイテムをターゲットのアイテムの上に移動する
   appendItemsTo(targetItemId: number, itemIds: number[]) {
     const moveItems = this.removeItems(itemIds);
 
@@ -252,6 +250,42 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     this.update();
   }
 
+  // アイテムを親フォルダに移動する
+  moveItemParent(itemId: number) {
+    const item = this.getItemByItemId(itemId);
+    if (!item) {
+      return;
+    }
+
+    this.appendItemsTo(item.parentId, [item.itemId]);
+  }
+
+  // フォルダ内の項目をソートする
+  sortItemInFolder(folderId: number) {
+    const nodeList = this.nodes[folderId];
+    if (!nodeList) {
+      return;
+    }
+
+    nodeList.sort((a, b) => {
+      return a.label.localeCompare(b.label);
+    });
+
+    this.update();
+  }
+
+  // すべてのアイテムを閉じる
+  async foldAllItems() {
+    // 一次元配列ですべての項目を閉じる
+    for (const itemId in this.nodeTable) {
+      const item = this.nodeTable[itemId];
+      if (item.isFolder) {
+        item.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
+      }
+    }
+    await this.update();
+  }
+
   // アイテム取得
   getItemByItemId(itemId: number): MyTreeItem {
     return this.nodeTable[itemId];
@@ -285,38 +319,19 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     await this.save();
   }
 
-  // JSONファイル名
-  getJsonFilename(): string {
-    if (!vscode.workspace.workspaceFolders) {
-      return '';
-    }
-    return path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, '.vscode', this.jsonFilename);
-  }
-
   // 保存
   async save() {
     if (!vscode.workspace.workspaceFolders) {
       return;
     }
-    const filePath = this.getJsonFilename();
-    const dirPath = path.dirname(filePath);
-    await fs.promises.mkdir(dirPath, { recursive: true });
 
-    if (!fs.existsSync(filePath)) {
-      // ダイアログで確認する、No/Cancelの場合は保存しない
-      const answer = await vscode.window.showInformationMessage(
-        'Do you want to save current data?',
-        { modal: true },
-        'Yes', 'No'
-      );
-
-      if (answer !== 'Yes') {
-        return;
-      }
+    if (!this.dataManager.checkFirstWrite()) {
+      return;
     }
 
     const data = this.prepareSerializableNode(0);
-    await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
+    const json = JSON.stringify(data, null, 2);
+    this.dataManager.saveData(json);
   }
 
   // シリアライズ可能なノードを準備する
@@ -333,20 +348,6 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     return data;
   }
 
-  // 古いjsonファイルのチェック
-  checkOldJsonFile() {
-    if (!vscode.workspace.workspaceFolders) {
-      return;
-    }
-
-    const filePath = path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, '.vscode', 'mydata.json');
-    if (!fs.existsSync(filePath)) {
-      return;
-    }
-
-    vscode.window.showInformationMessage('please rename .vscode/mydata.json to .vscode/sidetree.json');
-  }
-
   // データのリロード
   async reloadData() {
     await this.load();
@@ -354,17 +355,13 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
   // 読み出し
   async load() {
-    if (!vscode.workspace.workspaceFolders) {
+    const data = await this.dataManager.loadData();
+    if (!data) {
       return;
     }
 
-    const filePath = this.getJsonFilename();
-    try {
-      const data = JSON.parse(await fs.promises.readFile(filePath, 'utf8'));
-      this.clearTree();
-      this.appendItems(0, data);
-    } catch (e) {
-    }
+    this.clearTree();
+    this.appendItems(0, data);
     this._onDidChangeTreeData.fire();
   }
 

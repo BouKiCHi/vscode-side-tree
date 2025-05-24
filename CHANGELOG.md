@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.1.3
+- Added sort functionality.
+- Added backup functionality.
+- Added move to parent folder functionality.
+- Added "Save As" (export JSON) functionality.
+- Added "Fold All" functionality.
+
 ## 0.1.2
 - Improved path separator handling.
 - Fixed an issue where a newline character was inserted during drop.

@@ -1,13 +1,18 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as path from 'path';
 import { MyTreeDataProvider } from './MyTreeDataProvider';
 import { MyTreeItem } from './MyTreeItem';
 import { MyDnDController } from './MyDnDController';
 import { convertToRelative } from './convertToRelative';
+import { SideTreeDataManager } from './SideTreeDataManager';
 
 export function activate(context: vscode.ExtensionContext) {
-  // TreeDataProviderの実装
-  const treeDataProvider = new MyTreeDataProvider();
+  // データマネージャー
+  const dataManager = new SideTreeDataManager(context);
+
+  // TreeDataProviderのインスタンスを作成
+  const treeDataProvider = new MyTreeDataProvider(dataManager);
   const dndController = new MyDnDController(treeDataProvider);
 
   const options: vscode.TreeViewOptions<MyTreeItem> = {
@@ -31,22 +36,30 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // フォルダ追加コマンドの登録
+  // フォルダ追加コマンドの登録 エクスプローラ内のツリー
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.addFolderInExplorer', async () => {
       const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
       const folderId = getFolderId(selectedItems);
-      const folder = await treeDataProvider.addItemWithFolderId(folderId, 'New Folder', true);
+      const folderName = await inputFolderName();
+      if (!folderName) {
+        return;
+      }
+      const folder = await treeDataProvider.addItemWithFolderId(folderId, folderName, true);
       treeViewInExplorer.reveal(folder, { focus: true, expand: true });
     })
   );
 
-  // フォルダ追加コマンドの登録
+  // フォルダ追加コマンドの登録 単独ツリー
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.addFolder', async () => {
       const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
       const folderId = getFolderId(selectedItems);
-      const folder = await treeDataProvider.addItemWithFolderId(folderId, 'New Folder', true);
+      const folderName = await inputFolderName();
+      if (!folderName) {
+        return;
+      }
+      const folder = await treeDataProvider.addItemWithFolderId(folderId, folderName, true);
       treeView.reveal(folder, { focus: true, expand: true });
     })
   );
@@ -245,6 +258,88 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // 親フォルダの上に移動する
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.moveItemParent', async (menuItem: MyTreeItem) => {
+      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
+      const list = getSelectedItems(menuItem, selectedItems);
+      for(const item of list) {
+        treeDataProvider.moveItemParent(item.itemId);
+      }
+    })
+  );
+
+  // ツリー項目をを閉じる
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.foldAllItems', async () => {
+      vscode.commands.executeCommand('workbench.actions.treeView.sideTreeView.collapseAll');
+      vscode.commands.executeCommand('workbench.actions.treeView.sideTreeViewInExplorer.collapseAll');
+    })
+  );
+
+  // ソートコマンド
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.sortItems', async (menuItem: MyTreeItem) => {
+      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
+      const list = getSelectedItems(menuItem, selectedItems);
+
+      for(const item of list) {
+        if (!item.isFolder) {
+          continue;
+        }
+        treeDataProvider.sortItemInFolder(item.itemId);
+      }
+    })
+  );
+
+  // ルートフォルダをソートする
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.sortRootFolder', async () => {
+      treeDataProvider.sortItemInFolder(0);
+    })
+  );
+
+  // バックアップフォルダを開く
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.openBackupFolder', async () => {
+      if (!vscode.workspace.workspaceFolders) {
+        return;
+      }
+
+      // バックアップフォルダをWindowsのエクスプローラで開きたい
+      const backupFolder = dataManager.getBackupFolder();
+      if (fs.existsSync(backupFolder)) {
+        vscode.env.openExternal(vscode.Uri.file(backupFolder));
+      } else {
+        vscode.window.showInformationMessage(`Backup folder not found: ${backupFolder}`);
+      }
+    })
+  );
+
+  // JSONファイルを保存ダイアログで保存する
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.saveAs', async () => {
+      if (!vscode.workspace.workspaceFolders) {
+        return;
+      }
+
+      const defaultUri = vscode.Uri.file(dataManager.getJsonFilename());
+
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: defaultUri,
+        filters: {
+          'JSON Files': ['json'],
+          'All Files': ['*']
+        }
+      });
+
+      if (uri) {
+        const data = treeDataProvider.prepareSerializableNode(0);
+        await fs.promises.writeFile(uri.fsPath, JSON.stringify(data, null, 2), 'utf8');
+        vscode.window.showInformationMessage(`SideTree data saved to ${uri.fsPath}`);
+      }
+    })
+  );
 }
 
 // タブを開く
@@ -265,17 +360,35 @@ async function openDocument(filePath: string) {
 export function deactivate() { }
 
 // 選択用アイテムの取得
+// menuItemが選択リスト内に含まれている場合は、選択に対する操作とする
+// meniItemが選択リスト内に含まれていない場合は、menuItemに対する単独操作とする
 function getSelectedItems(menuItem: MyTreeItem|undefined, itemList: readonly MyTreeItem[]): readonly MyTreeItem[] {
   if (!menuItem) {
     return itemList;
   }
 
-  console.log(menuItem, itemList);
   if (isItemInList(menuItem, itemList)) {
     return itemList;
   }
 
   return [menuItem];
+}
+
+// フォルダ名を入力
+async function inputFolderName(): Promise<string | undefined> {
+  const name = 'New Folder';
+    const newLabel = await vscode.window.showInputBox({
+    prompt: `Enter name for folder"`,
+    placeHolder: name,
+    value: name,
+    validateInput: (value) => {
+      if (!value.trim()) {
+        return 'Name cannot be empty';
+      }
+      return null;
+    }
+  });
+  return newLabel;
 }
 
 // アイテムがリストにあるか

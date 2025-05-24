@@ -2,7 +2,7 @@
   "name": "side-tree",
   "displayName": "SideTree",
   "description": "A custom tree view in the sidebar to organize and navigate your project items.",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "boukichi",
   "engines": {
     "vscode": "^1.100.0"
@@ -34,6 +34,11 @@
       {
         "command": "sideTreeView.moveItemDown",
         "key": "alt+down",
+        "when": "focusedView == sideTreeView || focusedView == sideTreeViewInExplorer"
+      },
+      {
+        "command": "sideTreeView.moveItemParent",
+        "key": "alt+left",
         "when": "focusedView == sideTreeView || focusedView == sideTreeViewInExplorer"
       }
     ],
@@ -147,6 +152,40 @@
         "command": "sideTreeView.moveItemDown",
         "category": "SideTree",
         "title": "Move Item Down"
+      },
+      {
+        "command": "sideTreeView.moveItemParent",
+        "category": "SideTree",
+        "title": "Move Item Parent"
+      },
+      {
+        "command": "sideTreeView.sortItems",
+        "category": "SideTree",
+        "title": "Sort Items In Folder"
+      },
+      {
+        "command": "sideTreeView.sortRootFolder",
+        "category": "SideTree",
+        "title": "Sort Root Folder"
+      },
+      {
+        "command": "sideTreeView.foldAllItems",
+        "category": "SideTree",
+        "title": "Fold All Items",
+        "icon":{
+          "dark": "media/collapse_all_dark.svg",
+          "light": "media/collapse_all.svg"
+        }
+      },
+      {
+        "command": "sideTreeView.openBackupFolder",
+        "category": "SideTree",
+        "title": "Open Backup Folder"
+      },
+      {
+        "command": "sideTreeView.saveAs",
+        "category": "SideTree",
+        "title": "Save as (export JSON)"
       }
     ],
     "menus": {
@@ -172,9 +211,14 @@
           "group": "1_modification@3"
         },
         {
-          "command": "sideTreeView.importData",
+          "command": "sideTreeView.sortItems",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "1_modification@4"
+        },
+        {
+          "command": "sideTreeView.importData",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "1_modification@5"
         },
         {
           "command": "sideTreeView.copyPath",
@@ -182,14 +226,19 @@
           "group": "6_copypath@1"
         },
         {
-          "command": "sideTreeView.moveItemUp",
+          "command": "sideTreeView.moveItemParent",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "2_move_modification@1"
         },
         {
-          "command": "sideTreeView.moveItemDown",
+          "command": "sideTreeView.moveItemUp",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "2_move_modification@2"
+        },
+        {
+          "command": "sideTreeView.moveItemDown",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "2_move_modification@3"
         }
       ],
       "view/title": [
@@ -207,6 +256,26 @@
           "command": "sideTreeView.reloadData",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "navigation@2"
+        },
+        {
+          "command": "sideTreeView.foldAllItems",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "navigation@3"
+        },
+        {
+          "command": "sideTreeView.sortRootFolder",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "other@1"
+        },
+        {
+          "command": "sideTreeView.openBackupFolder",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "other@2"
+        },
+        {
+          "command": "sideTreeView.saveAs",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "other@3"
         }
       ],
       "editor/title/context": [
