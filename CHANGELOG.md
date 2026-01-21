@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.1.4
+- Added a feature to open a folder in the VS Code explorer when clicked.
+
+
 ## 0.1.3
 - Added sort functionality.
 - Added backup functionality.

@@ -17,12 +17,15 @@ export class MyTreeItem extends vscode.TreeItem {
     super(label, collapsibleState);
     this.tooltip = `${filePath ? `Path: ${filePath}` : ''}`;
     // this.description = `Description for ${label}`;
+    // isFolderの値に基づいてアイコンを設定
+    this.iconPath = new vscode.ThemeIcon(isFolder ? 'folder' : 'file');
+
     this.contextValue = 'MyTreeItem';
     if (commandId) {
       this.command = {
         command: commandId,
         title: 'Item Clicked',
-        arguments: [{ label, collapsibleState, filePath, itemId }]
+        arguments: [{ label, collapsibleState, filePath, itemId, isFolder }]
       };
     }
   }
