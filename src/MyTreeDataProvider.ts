@@ -8,6 +8,9 @@ export interface SerializedTreeNode {
   name: string;
   isFolder: boolean;
   filePath?: string;
+  line?: number;
+  column?: number;
+  symbolPath?: string;
   children: SerializedTreeNode[];
 }
 
@@ -100,11 +103,11 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
   }
 
   // アイテム作成
-  createItem(label: string, isFolder: boolean, filePath?: string): MyTreeItem {
+  createItem(label: string, isFolder: boolean, filePath?: string, line?: number, column?: number, symbolPath?: string): MyTreeItem {
     if (filePath) {
       filePath = convertToRelative(filePath);
     }
-    return new MyTreeItem(this.itemIdCount++, label, isFolder, this.commandId, filePath);
+    return new MyTreeItem(this.itemIdCount++, label, isFolder, this.commandId, filePath, line, column, symbolPath);
   }
 
 
@@ -339,16 +342,16 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
   }
 
   // 新しいアイテムを追加
-  async addItem(folderId: number, name: string, isFolder: boolean, filePath?: string) {
-    const newItem = this.createItem(name, isFolder, filePath);
+  async addItem(folderId: number, name: string, isFolder: boolean, filePath?: string, line?: number, column?: number, symbolPath?: string) {
+    const newItem = this.createItem(name, isFolder, filePath, line, column, symbolPath);
     newItem.parentId = folderId;
     this.appendNode(newItem);
     await this.update();
   }
 
   // 新しい項目を追加
-  async addItemWithFolderId(folderId: number, name: string, isFolder: boolean, filePath?: string): Promise<MyTreeItem> {
-    const newItem = this.createItem(name, isFolder, filePath);
+  async addItemWithFolderId(folderId: number, name: string, isFolder: boolean, filePath?: string, line?: number, column?: number, symbolPath?: string): Promise<MyTreeItem> {
+    const newItem = this.createItem(name, isFolder, filePath, line, column, symbolPath);
     newItem.parentId = folderId;
     this.appendNode(newItem);
     await this.update();
@@ -385,7 +388,15 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
       if (item.isFolder) {
         children = this.prepareSerializableNode(item.itemId);
       }
-      data.push({ name: item.label, isFolder: item.isFolder, filePath: item.filePath, children: children });
+      data.push({
+        name: item.label,
+        isFolder: item.isFolder,
+        filePath: item.filePath,
+        line: item.line,
+        column: item.column,
+        symbolPath: item.symbolPath,
+        children: children
+      });
     }
     return data;
   }
@@ -417,7 +428,7 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
   // 追加
   appendItems(parentId: number, data: SerializedTreeNode[]) {
     for (const row of data) {
-      const item = this.createItem(row.name, row.isFolder, row.filePath);
+      const item = this.createItem(row.name, row.isFolder, row.filePath, row.line, row.column, row.symbolPath);
       item.parentId = parentId;
       this.appendNode(item);
       if (row.children && row.children.length > 0) {

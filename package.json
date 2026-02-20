@@ -144,6 +144,11 @@
         "title": "Reveal Item in SideTree"
       },
       {
+        "command": "sideTreeView.addSymbolFromCurrentLine",
+        "category": "SideTree",
+        "title": "Add Class.Method to SideTree"
+      },
+      {
         "command": "sideTreeView.moveItemUp",
         "category": "SideTree",
         "title": "Move Item Up"
@@ -285,9 +290,21 @@
           "group": "1_modification"
         },
         {
+          "command": "sideTreeView.addSymbolFromCurrentLine",
+          "when": "resourceScheme == file",
+          "group": "1_modification"
+        },
+        {
           "command": "sideTreeView.revealItem",
           "when": "resourceScheme == file",
           "group": "1_modification"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "sideTreeView.addSymbolFromCurrentLine",
+          "when": "resourceScheme == file",
+          "group": "navigation"
         }
       ],
       "explorer/context": [

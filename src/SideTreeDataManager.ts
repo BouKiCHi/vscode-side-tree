@@ -160,6 +160,18 @@ export class SideTreeDataManager {
       return false;
     }
 
+    if (!(typeof candidate.line === 'undefined' || typeof candidate.line === 'number')) {
+      return false;
+    }
+
+    if (!(typeof candidate.column === 'undefined' || typeof candidate.column === 'number')) {
+      return false;
+    }
+
+    if (!(typeof candidate.symbolPath === 'undefined' || typeof candidate.symbolPath === 'string')) {
+      return false;
+    }
+
     if (!Array.isArray(candidate.children)) {
       return false;
     }

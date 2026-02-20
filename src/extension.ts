@@ -34,12 +34,19 @@ export function activate(context: vscode.ExtensionContext) {
   // クリック時の処理
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.itemClicked', async (args: {
-      label: string, collapsibleState: vscode.TreeItemCollapsibleState, filePath?: string, itemId?: number, isFolder?: boolean
+      label: string;
+      collapsibleState: vscode.TreeItemCollapsibleState;
+      filePath?: string;
+      itemId?: number;
+      isFolder?: boolean;
+      line?: number;
+      column?: number;
+      symbolPath?: string;
     }) => {
       if (!args.filePath || args.isFolder === undefined) {
         return;
       }
-      await ItemClicked(args.filePath);
+      await ItemClicked(args.filePath, args.line, args.column);
     })
   );
 
@@ -95,7 +102,7 @@ export function activate(context: vscode.ExtensionContext) {
           treeView.reveal(item, { focus: true, expand: true });
 
           if (item.filePath) {
-            await ItemClicked(item.filePath);
+            await ItemClicked(item.filePath, item.line, item.column);
           }
         }
       });
@@ -171,6 +178,37 @@ export function activate(context: vscode.ExtensionContext) {
       if (resource && resource.scheme === 'file') {
         await appendFile(resource);
       }
+    })
+  );
+
+  // 現在行のシンボル（クラス名+メソッド名）を追加
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.addSymbolFromCurrentLine', async (resource?: vscode.Uri) => {
+      const editor = vscode.window.activeTextEditor;
+      const targetUri = resource ?? editor?.document.uri;
+      if (!targetUri || targetUri.scheme !== 'file') {
+        return;
+      }
+
+      const position = editor?.selection.active ?? new vscode.Position(0, 0);
+      const symbolData = await getSymbolLabelAtPosition(targetUri, position);
+      if (!symbolData) {
+        vscode.window.showInformationMessage('No class/method symbol found at the current line.');
+        return;
+      }
+
+      const folderId = getActiveFolderId();
+      await treeDataProvider.addItemWithFolderId(
+        folderId,
+        symbolData.label,
+        false,
+        targetUri.fsPath,
+        position.line,
+        position.character,
+        symbolData.label
+      );
+      const folderPath = treeDataProvider.getItemPath(folderId);
+      vscode.window.showInformationMessage(`Added ${symbolData.label} to ${folderPath}`);
     })
   );
 
@@ -344,12 +382,17 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // タブを開く
-async function openDocument(filePath: string) {
+async function openDocument(filePath: string, line?: number, column?: number) {
   try {
     const uri = getUriFromPath(filePath);
     if (uri) {
       const doc = await vscode.workspace.openTextDocument(uri);
-      await vscode.window.showTextDocument(doc, { preserveFocus: true });
+      const editor = await vscode.window.showTextDocument(doc, { preserveFocus: true });
+      if (typeof line === 'number') {
+        const position = new vscode.Position(line, column ?? 0);
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+      }
     } else {
       vscode.window.showInformationMessage(`Failed to open file: ${filePath}`);
     }
@@ -424,6 +467,179 @@ export function getTargetFolderItemId(target: MyTreeItem | undefined) {
   return target.isFolder ? target.itemId : target.parentId;
 }
 
+function isClassLikeKind(kind: vscode.SymbolKind): boolean {
+  return kind === vscode.SymbolKind.Class || kind === vscode.SymbolKind.Struct || kind === vscode.SymbolKind.Interface;
+}
+
+function isMemberLikeKind(kind: vscode.SymbolKind): boolean {
+  return kind === vscode.SymbolKind.Method || kind === vscode.SymbolKind.Function || kind === vscode.SymbolKind.Constructor;
+}
+
+function getRangeWeight(range: vscode.Range): number {
+  const lineSpan = range.end.line - range.start.line;
+  const charSpan = range.end.character - range.start.character;
+  return lineSpan * 100000 + Math.max(charSpan, 0);
+}
+
+async function getSymbolLabelAtPosition(uri: vscode.Uri, position: vscode.Position): Promise<{ label: string } | undefined> {
+  const textFallback = await getSymbolLabelFromText(uri, position);
+  const symbolResult = await vscode.commands.executeCommand<(vscode.DocumentSymbol[] | vscode.SymbolInformation[])>(
+    'vscode.executeDocumentSymbolProvider',
+    uri
+  );
+
+  if (!symbolResult || symbolResult.length === 0) {
+    return textFallback;
+  }
+
+  // SymbolInformation 形式しか返らない言語へのフォールバック
+  if ('location' in symbolResult[0]) {
+    const infos = symbolResult as vscode.SymbolInformation[];
+    const scoped = infos
+      .filter((x) => x.location.range.contains(position))
+      .sort((a, b) => getRangeWeight(a.location.range) - getRangeWeight(b.location.range));
+    if (scoped.length === 0) {
+      return undefined;
+    }
+
+    const member = scoped.find((x) => isMemberLikeKind(x.kind) && !!x.containerName);
+    if (member) {
+      return { label: `${member.containerName}.${member.name}` };
+    }
+
+    const classSymbol = scoped.find((x) => isClassLikeKind(x.kind));
+    if (classSymbol) {
+      return textFallback ?? { label: classSymbol.name };
+    }
+
+    return textFallback ?? { label: scoped[0].name };
+  }
+
+  const symbols = symbolResult as vscode.DocumentSymbol[];
+  const symbolPath = findDeepestSymbolPath(symbols, position);
+  if (!symbolPath || symbolPath.length === 0) {
+    return undefined;
+  }
+
+  const memberSymbol = [...symbolPath].reverse().find((x) => isMemberLikeKind(x.kind));
+  if (memberSymbol) {
+    const classSymbol = [...symbolPath]
+      .reverse()
+      .find((x) => isClassLikeKind(x.kind));
+    if (classSymbol) {
+      return { label: `${classSymbol.name}.${memberSymbol.name}` };
+    }
+    return { label: memberSymbol.name };
+  }
+
+  const classOnly = [...symbolPath].reverse().find((x) => isClassLikeKind(x.kind));
+  if (classOnly) {
+    return textFallback ?? { label: classOnly.name };
+  }
+
+  return textFallback ?? { label: symbolPath[symbolPath.length - 1].name };
+}
+
+function findDeepestSymbolPath(symbols: vscode.DocumentSymbol[], position: vscode.Position, chain: vscode.DocumentSymbol[] = []): vscode.DocumentSymbol[] | undefined {
+  for (const symbol of symbols) {
+    if (!symbol.range.contains(position)) {
+      continue;
+    }
+
+    const nextChain = [...chain, symbol];
+    const childPath = findDeepestSymbolPath(symbol.children, position, nextChain);
+    if (childPath) {
+      return childPath;
+    }
+    return nextChain;
+  }
+
+  return undefined;
+}
+
+async function getSymbolLabelFromText(uri: vscode.Uri, position: vscode.Position): Promise<{ label: string } | undefined> {
+  try {
+    const doc = await vscode.workspace.openTextDocument(uri);
+    const line = position.line;
+    const start = Math.max(0, line - 120);
+    const classRegex = /\b(class|struct|interface)\s+([A-Za-z_][A-Za-z0-9_]*)/;
+    const methodName = findEnclosingMethodName(doc, line, start);
+
+    let className: string | undefined;
+    for (let i = line; i >= start; i--) {
+      const text = doc.lineAt(i).text;
+      const classMatch = text.match(classRegex);
+      if (classMatch) {
+        className = classMatch[2];
+        break;
+      }
+    }
+
+    if (className && methodName) {
+      return { label: `${className}.${methodName}` };
+    }
+
+    if (methodName) {
+      return { label: methodName };
+    }
+
+    if (className) {
+      return { label: className };
+    }
+  } catch {
+    return undefined;
+  }
+
+  return undefined;
+}
+
+function findEnclosingMethodName(doc: vscode.TextDocument, line: number, startLine: number): string | undefined {
+  const methodDeclarationRegex =
+    /^\s*(?:(?:public|private|protected|internal|static|virtual|override|abstract|sealed|new|async|extern|unsafe|partial)\s+)*(?:[A-Za-z_][\w<>\[\],\?\.\s]*\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*\([^;]*\)\s*(?:where\b.*)?(?:\{|=>)?\s*$/;
+  const nonMethodNames = new Set(['if', 'for', 'foreach', 'while', 'switch', 'catch', 'using', 'lock', 'nameof']);
+
+  for (let i = line; i >= startLine; i--) {
+    const text = doc.lineAt(i).text.trim();
+    const match = text.match(methodDeclarationRegex);
+    if (!match) {
+      continue;
+    }
+
+    const name = match[1];
+    if (nonMethodNames.has(name)) {
+      continue;
+    }
+
+    const endLine = findBlockEndLine(doc, i);
+    if (endLine === undefined || line <= endLine) {
+      return name;
+    }
+  }
+
+  return undefined;
+}
+
+function findBlockEndLine(doc: vscode.TextDocument, startLine: number): number | undefined {
+  let depth = 0;
+  let started = false;
+  for (let i = startLine; i < doc.lineCount; i++) {
+    const text = doc.lineAt(i).text;
+    for (const ch of text) {
+      if (ch === '{') {
+        depth++;
+        started = true;
+      } else if (ch === '}') {
+        depth--;
+        if (started && depth <= 0) {
+          return i;
+        }
+      }
+    }
+  }
+
+  return undefined;
+}
+
 // パスからuriを取得する
 function getUriFromPath(filePath: string): vscode.Uri | null {
   if (path.isAbsolute(filePath)) {
@@ -441,7 +657,7 @@ function getUriFromPath(filePath: string): vscode.Uri | null {
 }
 
 // アイテム表示
-async function ItemClicked(filePath: string) {
+async function ItemClicked(filePath: string, line?: number, column?: number) {
   const uri = getUriFromPath(filePath);
   if (!uri) {
     vscode.window.showInformationMessage(`Path does not exist: ${filePath}`);
@@ -458,7 +674,7 @@ async function ItemClicked(filePath: string) {
     vscode.commands.executeCommand('revealInExplorer', uri);
   } else {
     // ファイルの場合はドキュメントとして開く
-    await openDocument(filePath);
+    await openDocument(filePath, line, column);
   }
 }
 
