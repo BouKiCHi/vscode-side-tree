@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.1.5
+- Improved type safety and data validation in tree/data management modules.
+- Hardened remove/move behavior to reduce inconsistent states and runtime errors.
+- Refactored duplicated selection/folder-resolution logic in extension commands.
+- Stabilized drag-and-drop item addition by awaiting async operations.
+- Improved relative path conversion to avoid incorrect workspace prefix matches.
+- Added regression tests for add/remove consistency, move/sort behavior, and path conversion.
+
 ## 0.1.4
 - Added a feature to open a folder in the VS Code explorer when clicked.
 
