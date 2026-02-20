@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import type { SerializedTreeNode } from './MyTreeDataProvider';
 
 // データマネージャー
 export class SideTreeDataManager {
@@ -27,14 +28,17 @@ export class SideTreeDataManager {
   }
 
   // JSONデータ読み出し
-  async loadData(): Promise<any> {
+  async loadData(): Promise<SerializedTreeNode[] | null> {
     if (!vscode.workspace.workspaceFolders) {
       return null;
     }
 
     const filePath = this.getJsonFilename();
     try {
-      const data = JSON.parse(await fs.promises.readFile(filePath, 'utf8'));
+      const data: unknown = JSON.parse(await fs.promises.readFile(filePath, 'utf8'));
+      if (!this.isSerializedTreeNodeArray(data)) {
+        return null;
+      }
       return data;
     } catch (e) {
       return null;
@@ -127,5 +131,39 @@ export class SideTreeDataManager {
       return '';
     }
     return path.join(vscode.workspace.workspaceFolders[0].uri.fsPath, '.vscode', this.jsonFilename);
+  }
+
+  private isSerializedTreeNodeArray(value: unknown): value is SerializedTreeNode[] {
+    if (!Array.isArray(value)) {
+      return false;
+    }
+
+    return value.every((node) => this.isSerializedTreeNode(node));
+  }
+
+  private isSerializedTreeNode(value: unknown): value is SerializedTreeNode {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    const candidate = value as Record<string, unknown>;
+
+    if (typeof candidate.name !== 'string') {
+      return false;
+    }
+
+    if (typeof candidate.isFolder !== 'boolean') {
+      return false;
+    }
+
+    if (!(typeof candidate.filePath === 'undefined' || typeof candidate.filePath === 'string')) {
+      return false;
+    }
+
+    if (!Array.isArray(candidate.children)) {
+      return false;
+    }
+
+    return candidate.children.every((child) => this.isSerializedTreeNode(child));
   }
 }

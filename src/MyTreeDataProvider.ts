@@ -4,6 +4,13 @@ import { MyTreeQuickPickItem } from './extension';
 import { convertToRelative } from './convertToRelative';
 import { SideTreeDataManager } from './SideTreeDataManager';
 
+export interface SerializedTreeNode {
+  name: string;
+  isFolder: boolean;
+  filePath?: string;
+  children: SerializedTreeNode[];
+}
+
 // ツリーデータプロバイダ
 export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
@@ -65,12 +72,13 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     let currentItem = item;
     const pathSegments = [currentItem.label];
     while (currentItem.parentId !== 0) {
-      currentItem = this.getItemByItemId(currentItem.parentId);
-      if (currentItem) {
-        pathSegments.unshift(currentItem.label);
-      } else {
+      const parentItem = this.getItemByItemId(currentItem.parentId);
+      if (!parentItem) {
         break;
       }
+
+      currentItem = parentItem;
+      pathSegments.unshift(currentItem.label);
     }
 
     return '/' + pathSegments.join('/');
@@ -119,7 +127,12 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
   // ラベル変更
   changeLabel(itemId: number, newLabel: string) {
-    this.getItemByItemId(itemId).label = newLabel;
+    const item = this.getItemByItemId(itemId);
+    if (!item) {
+      return;
+    }
+
+    item.label = newLabel;
     this.update();
   }
 
@@ -128,20 +141,26 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     if (element.parentId === 0) {
       return undefined;
     }
-    return this.getItemByItemId(element.parentId);
+    const parent = this.getItemByItemId(element.parentId);
+    return parent;
   }
 
   // アイテム削除
   removeItem(itemId: number, notifyChanged: boolean = true) {
-    this.removeItems([itemId]);
-
-    // フォルダの場合
-    if (this.nodes[itemId]) {
-      for (const childItem of this.nodes[itemId]) {
-        this.removeItem(childItem.itemId, false);
-      }
-      delete this.nodes[itemId];
+    const item = this.getItemByItemId(itemId);
+    if (!item) {
+      return;
     }
+
+    // 走査中に配列が書き換わらないようにコピーしてから再帰削除
+    const children = this.nodes[itemId] ? [...this.nodes[itemId]] : [];
+    for (const childItem of children) {
+      this.removeItem(childItem.itemId, false);
+    }
+
+    this.removeItems([itemId]);
+    delete this.nodes[itemId];
+    delete this.nodeTable[itemId];
     if (notifyChanged) {
       this.update();
     }
@@ -161,12 +180,23 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
   // アイテムをターゲットのアイテムの上に移動する
   appendItemsTo(targetItemId: number, itemIds: number[]) {
+    if (targetItemId === 0) {
+      return;
+    }
+
+    const targetItem = this.getItemByItemId(targetItemId);
+    if (!targetItem) {
+      return;
+    }
+
     const moveItems = this.removeItems(itemIds);
 
     // 位置を特定して以下する
-    const targetItem = this.getItemByItemId(targetItemId);
     const targetParentId = targetItem.parentId;
     const targetNodeList = this.nodes[targetParentId];
+    if (!targetNodeList) {
+      return;
+    }
     let targetIndex = targetNodeList.findIndex(x => x.itemId === targetItemId);
     if (targetIndex === -1) {
       return;
@@ -182,16 +212,22 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
   // 削除
   removeItems(itemIds: number[]): MyTreeItem[] {
-    const items = [];
+    const items: MyTreeItem[] = [];
 
     // アイテムを削除する
     for (const itemId of itemIds) {
       const item = this.getItemByItemId(itemId);
+      if (!item) {
+        continue;
+      }
       items.push(item);
 
       // フォルダから削除する
       const parentId = item.parentId;
       const nodeList = this.nodes[parentId];
+      if (!nodeList) {
+        continue;
+      }
       const index = nodeList.findIndex(x => x.itemId === itemId);
       if (index === -1) {
         continue;
@@ -211,6 +247,9 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
     const parentId = item.parentId;
     const nodeList = this.nodes[parentId];
+    if (!nodeList) {
+      return;
+    }
     const currentIndex = nodeList.findIndex(x => x.itemId === itemId);
 
     // 最上段の場合は何もしない
@@ -235,6 +274,9 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
     const parentId = item.parentId;
     const nodeList = this.nodes[parentId];
+    if (!nodeList) {
+      return;
+    }
     const currentIndex = nodeList.findIndex(x => x.itemId === itemId);
 
     // 最下段の場合は何もしない
@@ -287,7 +329,7 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
   }
 
   // アイテム取得
-  getItemByItemId(itemId: number): MyTreeItem {
+  getItemByItemId(itemId: number): MyTreeItem | undefined {
     return this.nodeTable[itemId];
   }
 
@@ -325,21 +367,21 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
       return;
     }
 
-    if (!this.dataManager.checkFirstWrite()) {
+    if (!(await this.dataManager.checkFirstWrite())) {
       return;
     }
 
     const data = this.prepareSerializableNode(0);
     const json = JSON.stringify(data, null, 2);
-    this.dataManager.saveData(json);
+    await this.dataManager.saveData(json);
   }
 
   // シリアライズ可能なノードを準備する
-  prepareSerializableNode(itemId: number): any[] {
-    const data = [];
+  prepareSerializableNode(itemId: number): SerializedTreeNode[] {
+    const data: SerializedTreeNode[] = [];
 
-    for (const item of this.nodes[itemId]) {
-      let children = [];
+    for (const item of this.nodes[itemId] ?? []) {
+      let children: SerializedTreeNode[] = [];
       if (item.isFolder) {
         children = this.prepareSerializableNode(item.itemId);
       }
@@ -373,12 +415,12 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
   }
 
   // 追加
-  appendItems(parentId: number, data: any[]) {
+  appendItems(parentId: number, data: SerializedTreeNode[]) {
     for (const row of data) {
       const item = this.createItem(row.name, row.isFolder, row.filePath);
       item.parentId = parentId;
       this.appendNode(item);
-      if (row.children) {
+      if (row.children && row.children.length > 0) {
         this.appendItems(item.itemId, row.children);
       }
     }
