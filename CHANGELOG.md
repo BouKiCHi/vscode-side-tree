@@ -1,5 +1,11 @@
 # Change Log
 
+## 0.1.6
+- Added `Add Class.Method to SideTree` command in editor context menus.
+- Added support for storing symbol metadata (`line`, `column`, `symbolPath`) in SideTree items.
+- Updated item click behavior to open files at the stored line/column when available.
+- Improved C# symbol extraction fallback so entries inside methods resolve to `Class.Method` (e.g. `Program.Main`) instead of call-site symbols.
+
 ## 0.1.5
 - Improved type safety and data validation in tree/data management modules.
 - Hardened remove/move behavior to reduce inconsistent states and runtime errors.
