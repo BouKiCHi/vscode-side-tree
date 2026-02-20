@@ -12,14 +12,18 @@ export function convertToRelative(filePath: string): string {
   }
 
   const workspacePath = workspaceFolder.uri.fsPath;
+  const relativePath = path.relative(workspacePath, filePath);
 
-  // パスの先頭が一致する場合
-  if (filePath.startsWith(workspacePath)) {
-    // 相対パスに変換
-    let relativePath = path.relative(workspacePath, filePath);
-    // パス区切りを変換
-    relativePath = relativePath.replace(/\\/g, '/');
-    return relativePath;
+  // ワークスペース外のパス（.. で始まる）や別ドライブは相対化しない
+  if (
+    !relativePath ||
+    relativePath === '' ||
+    relativePath.startsWith('..') ||
+    path.isAbsolute(relativePath)
+  ) {
+    return filePath;
   }
-  return filePath;
+
+  // パス区切りを POSIX 形式に統一
+  return relativePath.replace(/\\/g, '/');
 }

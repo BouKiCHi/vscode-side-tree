@@ -48,7 +48,7 @@ export class MyDnDController implements vscode.TreeDragAndDropController<MyTreeI
         const targetFolderId = getTargetFolderItemId(target);
         // console.log(`Dropped file: ${uri.fsPath}`);
         const fileName = path.basename(uri.fsPath);
-        this.treeDataProvider.addItemWithFolderId(targetFolderId, fileName, false, uri.fsPath);
+        await this.treeDataProvider.addItemWithFolderId(targetFolderId, fileName, false, uri.fsPath);
       }
     }
   }

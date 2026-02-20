@@ -24,6 +24,12 @@ export function activate(context: vscode.ExtensionContext) {
   // ツリービューの作成
   const treeView = vscode.window.createTreeView('sideTreeView', options);
   const treeViewInExplorer = vscode.window.createTreeView('sideTreeViewInExplorer', options);
+  const getActiveSelection = (): readonly MyTreeItem[] => {
+    return treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
+  };
+  const getActiveFolderId = (): number => {
+    return getFolderId(getActiveSelection());
+  };
 
   // クリック時の処理
   context.subscriptions.push(
@@ -40,8 +46,7 @@ export function activate(context: vscode.ExtensionContext) {
   // フォルダ追加コマンドの登録 エクスプローラ内のツリー
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.addFolderInExplorer', async () => {
-      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
-      const folderId = getFolderId(selectedItems);
+      const folderId = getActiveFolderId();
       const folderName = await inputFolderName();
       if (!folderName) {
         return;
@@ -54,8 +59,7 @@ export function activate(context: vscode.ExtensionContext) {
   // フォルダ追加コマンドの登録 単独ツリー
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.addFolder', async () => {
-      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
-      const folderId = getFolderId(selectedItems);
+      const folderId = getActiveFolderId();
       const folderName = await inputFolderName();
       if (!folderName) {
         return;
@@ -85,6 +89,9 @@ export function activate(context: vscode.ExtensionContext) {
           quickPick.hide();
           const selectedItemId = (selection[0] as MyTreeQuickPickItem).itemId;
           const item = treeDataProvider.getItemByItemId(selectedItemId);
+          if (!item) {
+            return;
+          }
           treeView.reveal(item, { focus: true, expand: true });
 
           if (item.filePath) {
@@ -117,8 +124,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       // フォルダIDの取得
-      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
-      const folderId = getFolderId(selectedItems);
+      const folderId = getActiveFolderId();
 
       const lines = list.split('\n');
       for (const line of lines) {
@@ -138,8 +144,7 @@ export function activate(context: vscode.ExtensionContext) {
     const filePath = resource.fsPath;
     const fileName = path.basename(filePath);
     // フォルダIDの取得
-    const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
-    const folderId = getFolderId(selectedItems);
+    const folderId = getActiveFolderId();
     await treeDataProvider.addItemWithFolderId(folderId, fileName, false, filePath);
     const folderPath = treeDataProvider.getItemPath(folderId);
     vscode.window.showInformationMessage(`Added ${fileName} to ${folderPath}`);
@@ -181,8 +186,7 @@ export function activate(context: vscode.ExtensionContext) {
   // アイテム削除コマンドの登録
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.removeItem', async (menuItem: MyTreeItem) => {
-      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
-      const list = getSelectedItems(menuItem, selectedItems);
+      const list = getSelectedItems(menuItem, getActiveSelection());
       const labels: { [key: string]: boolean } = {};
       const dirs: { [key: string]: boolean } = {};
       for (const item of list) {
@@ -202,8 +206,7 @@ export function activate(context: vscode.ExtensionContext) {
   // パスのコピーコマンドの機能
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.copyPath', async (menuItem: MyTreeItem) => {
-      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
-      const list = getSelectedItems(menuItem, selectedItems);
+      const list = getSelectedItems(menuItem, getActiveSelection());
       const paths = list.filter(x => x.filePath).map(x => x.filePath);
       await vscode.env.clipboard.writeText(paths.join('\n'));
     })
@@ -212,7 +215,7 @@ export function activate(context: vscode.ExtensionContext) {
   // アイテムリネームコマンドの登録
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.renameItem', async (menuItem: MyTreeItem) => {
-      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
+      const selectedItems = getActiveSelection();
       if (!selectedItems.length) {
         return;
       }
@@ -241,8 +244,7 @@ export function activate(context: vscode.ExtensionContext) {
   // 上に移動
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.moveItemUp', async (menuItem: MyTreeItem) => {
-      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
-      const list = getSelectedItems(menuItem, selectedItems);
+      const list = getSelectedItems(menuItem, getActiveSelection());
       for (const item of list) {
         treeDataProvider.moveItemUp(item.itemId);
       }
@@ -252,8 +254,7 @@ export function activate(context: vscode.ExtensionContext) {
   // 下に移動
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.moveItemDown', async (menuItem: MyTreeItem) => {
-      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
-      const list = getSelectedItems(menuItem, selectedItems);
+      const list = getSelectedItems(menuItem, getActiveSelection());
       for (const item of list) {
         treeDataProvider.moveItemDown(item.itemId);
       }
@@ -263,8 +264,7 @@ export function activate(context: vscode.ExtensionContext) {
   // 親フォルダの上に移動する
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.moveItemParent', async (menuItem: MyTreeItem) => {
-      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
-      const list = getSelectedItems(menuItem, selectedItems);
+      const list = getSelectedItems(menuItem, getActiveSelection());
       for (const item of list) {
         treeDataProvider.moveItemParent(item.itemId);
       }
@@ -282,8 +282,7 @@ export function activate(context: vscode.ExtensionContext) {
   // ソートコマンド
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.sortItems', async (menuItem: MyTreeItem) => {
-      const selectedItems = treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
-      const list = getSelectedItems(menuItem, selectedItems);
+      const list = getSelectedItems(menuItem, getActiveSelection());
 
       for (const item of list) {
         if (!item.isFolder) {
@@ -380,7 +379,7 @@ function getSelectedItems(menuItem: MyTreeItem | undefined, itemList: readonly M
 async function inputFolderName(): Promise<string | undefined> {
   const name = 'New Folder';
   const newLabel = await vscode.window.showInputBox({
-    prompt: `Enter name for folder"`,
+    prompt: 'Enter name for folder',
     placeHolder: name,
     value: name,
     validateInput: (value) => {
@@ -423,12 +422,6 @@ export function getTargetFolderItemId(target: MyTreeItem | undefined) {
   }
 
   return target.isFolder ? target.itemId : target.parentId;
-}
-
-// ファイルが開かれているか？
-async function isFileOpen(filePath: string): Promise<boolean> {
-  const documents = vscode.workspace.textDocuments;
-  return documents.some(doc => doc.uri.fsPath === filePath);
 }
 
 // パスからuriを取得する
