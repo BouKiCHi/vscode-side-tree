@@ -223,6 +223,51 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // 現在行のシンボル（クラス名+メソッド名）と行番号をコピー
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.copySymbolFromCurrentLine', async (resource?: vscode.Uri) => {
+      const editor = vscode.window.activeTextEditor;
+      const targetUri = resource ?? editor?.document.uri;
+      if (!targetUri || targetUri.scheme !== 'file') {
+        return;
+      }
+
+      const position = editor?.selection.active ?? new vscode.Position(0, 0);
+      const symbolData = await getSymbolLabelAtPosition(targetUri, position);
+      if (!symbolData) {
+        vscode.window.showInformationMessage(
+          localize('sideTree.message.noSymbolFound', 'No class/method symbol found at the current line.')
+        );
+        return;
+      }
+
+      const menuLabel = formatSymbolMenuLabel(symbolData.label, position.line);
+      await vscode.env.clipboard.writeText(menuLabel);
+      vscode.window.showInformationMessage(
+        localize('sideTree.message.copiedToClipboard', 'Copied {0} to clipboard', menuLabel)
+      );
+    })
+  );
+
+  // 現在行の相対ファイルパスと行番号をコピー
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.copyRelativePathWithLineFromCurrentLine', async (resource?: vscode.Uri) => {
+      const editor = vscode.window.activeTextEditor;
+      const targetUri = resource ?? editor?.document.uri;
+      if (!targetUri || targetUri.scheme !== 'file') {
+        return;
+      }
+
+      const position = editor?.selection.active ?? new vscode.Position(0, 0);
+      const relativePath = convertToRelative(targetUri.fsPath);
+      const pathWithLine = `${relativePath}:${position.line + 1}`;
+      await vscode.env.clipboard.writeText(pathWithLine);
+      vscode.window.showInformationMessage(
+        localize('sideTree.message.copiedToClipboard', 'Copied {0} to clipboard', pathWithLine)
+      );
+    })
+  );
+
   // エクスプローラーからアイテム追加コマンドの登録
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.addItemFromExplorer', async (resource: vscode.Uri) => {
@@ -506,8 +551,7 @@ function isStringLikeKind(kind: vscode.SymbolKind): boolean {
 // 表示用のシンボルラベルを整形する
 function formatSymbolLabel(label: string, line: number): string {
   const lineNumber = line + 1;
-  const lineLabel = localize('sideTree.symbol.lineLabel', 'L{0}', lineNumber);
-  return `${label} (${lineLabel})`;
+  return `${label}:${lineNumber}`;
 }
 
 // 通知/メニュー用のシンボルラベルを整形する

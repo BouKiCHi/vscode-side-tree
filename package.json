@@ -149,6 +149,16 @@
         "title": "%sideTree.command.addSymbolFromCurrentLine.title%"
       },
       {
+        "command": "sideTreeView.copySymbolFromCurrentLine",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.copySymbolFromCurrentLine.title%"
+      },
+      {
+        "command": "sideTreeView.copyRelativePathWithLineFromCurrentLine",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.copyRelativePathWithLineFromCurrentLine.title%"
+      },
+      {
         "command": "sideTreeView.moveItemUp",
         "category": "%sideTree.command.category%",
         "title": "%sideTree.command.moveItemUp.title%"
@@ -305,6 +315,16 @@
           "command": "sideTreeView.addSymbolFromCurrentLine",
           "when": "resourceScheme == file",
           "group": "navigation@6"
+        },
+        {
+          "command": "sideTreeView.copySymbolFromCurrentLine",
+          "when": "resourceScheme == file",
+          "group": "navigation@7"
+        },
+        {
+          "command": "sideTreeView.copyRelativePathWithLineFromCurrentLine",
+          "when": "resourceScheme == file",
+          "group": "navigation@8"
         }
       ],
       "explorer/context": [

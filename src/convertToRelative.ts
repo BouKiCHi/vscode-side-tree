@@ -5,7 +5,8 @@ import * as vscode from 'vscode';
 
 
 export function convertToRelative(filePath: string): string {
-  const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+  const fileUri = vscode.Uri.file(filePath);
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(fileUri) ?? vscode.workspace.workspaceFolders?.[0];
 
   if (!workspaceFolder) {
     return filePath;
