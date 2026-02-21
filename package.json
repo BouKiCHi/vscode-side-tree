@@ -304,7 +304,7 @@
         {
           "command": "sideTreeView.addSymbolFromCurrentLine",
           "when": "resourceScheme == file",
-          "group": "navigation"
+          "group": "navigation@6"
         }
       ],
       "explorer/context": [
