@@ -2,7 +2,7 @@
   "name": "side-tree",
   "displayName": "%sideTree.displayName%",
   "description": "%sideTree.description%",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "publisher": "boukichi",
   "engines": {
     "vscode": "^1.100.0"

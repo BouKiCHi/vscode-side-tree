@@ -1,5 +1,13 @@
 # Change Log
 
+## 0.1.8
+- Added localization infrastructure using `package.nls.json` / `package.nls.ja.json` and a shared `localize(...)` helper for runtime messages.
+- Localized extension contributions and UI messages for English/Japanese.
+- Added editor context commands to copy `Name:Line` and `RelativePath:Line` from the current line to clipboard.
+- Adjusted editor context menu ordering for symbol-related commands.
+- Updated symbol item labels added to SideTree to use `Name:Line` format.
+- Improved relative path conversion to resolve against the correct workspace folder in multi-root workspaces.
+
 ## 0.1.7
 - Updated symbol label generation to resolve names from shallow-to-deep symbols and compose labels as `Class.Method.String` when available.
 - Unified label-building behavior between `DocumentSymbol` and `SymbolInformation` providers.
