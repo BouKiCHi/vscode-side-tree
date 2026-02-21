@@ -55,7 +55,7 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     for (const key in this.nodeTable) {
       const item = this.nodeTable[key];
       const itemPath = this.getItemPath(item.itemId);
-      items.push({ itemId: item.itemId, label: item.label, detail: itemPath });
+      items.push({ itemId: item.itemId, label: this.getMenuLabel(item), detail: itemPath });
     }
     return items;
   }
@@ -334,6 +334,14 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
   // アイテム取得
   getItemByItemId(itemId: number): MyTreeItem | undefined {
     return this.nodeTable[itemId];
+  }
+
+  private getMenuLabel(item: MyTreeItem): string {
+    if (item.symbolPath) {
+      const lineNumber = typeof item.line === 'number' ? item.line + 1 : undefined;
+      return `${item.symbolPath}${lineNumber ? `:${lineNumber}` : ''}`;
+    }
+    return item.label;
   }
 
   // 子ノードの存在を確認

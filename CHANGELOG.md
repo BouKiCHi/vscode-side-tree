@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.1.7
+- Updated symbol label generation to resolve names from shallow-to-deep symbols and compose labels as `Class.Method.String` when available.
+- Unified label-building behavior between `DocumentSymbol` and `SymbolInformation` providers.
+- Fixed symbol provider type detection to prefer `DocumentSymbol` handling when `children` are present.
+- Updated symbol item display and menu labels to include line information (e.g. `Name:42`, `Name (L42)`).
+- Improved search list labels to show symbol path and line for symbol-based items.
+
 ## 0.1.6
 - Added `Add Class.Method to SideTree` command in editor context menus.
 - Added support for storing symbol metadata (`line`, `column`, `symbolPath`) in SideTree items.

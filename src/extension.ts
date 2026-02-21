@@ -7,6 +7,7 @@ import { MyDnDController } from './MyDnDController';
 import { convertToRelative } from './convertToRelative';
 import { SideTreeDataManager } from './SideTreeDataManager';
 
+// 拡張機能の初期化とコマンド登録を行う
 export function activate(context: vscode.ExtensionContext) {
   // データマネージャー
   const dataManager = new SideTreeDataManager(context);
@@ -146,7 +147,7 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
-  // ファイルを追加する
+  // 指定ファイルをサイドツリーに追加する
   async function appendFile(resource: vscode.Uri) {
     const filePath = resource.fsPath;
     const fileName = path.basename(filePath);
@@ -197,10 +198,12 @@ export function activate(context: vscode.ExtensionContext) {
         return;
       }
 
+      const displayLabel = formatSymbolLabel(symbolData.label, position.line);
+      const menuLabel = formatSymbolMenuLabel(symbolData.label, position.line);
       const folderId = getActiveFolderId();
       await treeDataProvider.addItemWithFolderId(
         folderId,
-        symbolData.label,
+        displayLabel,
         false,
         targetUri.fsPath,
         position.line,
@@ -208,7 +211,7 @@ export function activate(context: vscode.ExtensionContext) {
         symbolData.label
       );
       const folderPath = treeDataProvider.getItemPath(folderId);
-      vscode.window.showInformationMessage(`Added ${symbolData.label} to ${folderPath}`);
+      vscode.window.showInformationMessage(`Added ${menuLabel} to ${folderPath}`);
     })
   );
 
@@ -230,7 +233,7 @@ export function activate(context: vscode.ExtensionContext) {
       for (const item of list) {
         const folderPath = treeDataProvider.getItemPath(item.parentId);
         dirs[folderPath] = true;
-        labels[item.label] = true;
+        labels[getMenuLabel(item)] = true;
         treeDataProvider.removeItem(item.itemId);
       }
 
@@ -381,7 +384,7 @@ export function activate(context: vscode.ExtensionContext) {
   );
 }
 
-// タブを開く
+// ファイルを開き指定位置へ移動する
 async function openDocument(filePath: string, line?: number, column?: number) {
   try {
     const uri = getUriFromPath(filePath);
@@ -401,11 +404,11 @@ async function openDocument(filePath: string, line?: number, column?: number) {
   }
 }
 
+// 拡張機能の終了処理（現在は空）
 export function deactivate() { }
 
-// 選択用アイテムの取得
 // menuItemが選択リスト内に含まれている場合は、選択に対する操作とする
-// meniItemが選択リスト内に含まれていない場合は、menuItemに対する単独操作とする
+// 選択中アイテムの対象リストを決定する
 function getSelectedItems(menuItem: MyTreeItem | undefined, itemList: readonly MyTreeItem[]): readonly MyTreeItem[] {
   if (!menuItem) {
     return itemList;
@@ -418,7 +421,7 @@ function getSelectedItems(menuItem: MyTreeItem | undefined, itemList: readonly M
   return [menuItem];
 }
 
-// フォルダ名を入力
+// フォルダ名の入力を促す
 async function inputFolderName(): Promise<string | undefined> {
   const name = 'New Folder';
   const newLabel = await vscode.window.showInputBox({
@@ -435,7 +438,7 @@ async function inputFolderName(): Promise<string | undefined> {
   return newLabel;
 }
 
-// アイテムがリストにあるか
+// メニューアイテムが選択リスト内か判定する
 function isItemInList(menuItem: MyTreeItem, list: readonly MyTreeItem[]) {
   return list.some(x => x.itemId === menuItem.itemId);
 };
@@ -445,7 +448,7 @@ export interface MyTreeQuickPickItem extends vscode.QuickPickItem {
   itemId: number;
 }
 
-// フォルダIDを取得
+// 選択から対象フォルダIDを取得する
 function getFolderId(selectedItems: readonly MyTreeItem[]): number {
   const folderItem = selectedItems.length > 0 ? selectedItems[0] : null;
   // 未選択はルート
@@ -458,7 +461,7 @@ function getFolderId(selectedItems: readonly MyTreeItem[]): number {
   return folderId;
 }
 
-// 対象となるフォルダIDの取得
+// 対象アイテムから親フォルダIDを返す
 export function getTargetFolderItemId(target: MyTreeItem | undefined) {
   if (!target) {
     return 0;
@@ -467,20 +470,49 @@ export function getTargetFolderItemId(target: MyTreeItem | undefined) {
   return target.isFolder ? target.itemId : target.parentId;
 }
 
+// クラス相当のシンボル種別か判定する
 function isClassLikeKind(kind: vscode.SymbolKind): boolean {
   return kind === vscode.SymbolKind.Class || kind === vscode.SymbolKind.Struct || kind === vscode.SymbolKind.Interface;
 }
 
+// メソッド/関数相当のシンボル種別か判定する
 function isMemberLikeKind(kind: vscode.SymbolKind): boolean {
   return kind === vscode.SymbolKind.Method || kind === vscode.SymbolKind.Function || kind === vscode.SymbolKind.Constructor;
 }
 
+// 文字列相当のシンボル種別か判定する
+function isStringLikeKind(kind: vscode.SymbolKind): boolean {
+  return kind === vscode.SymbolKind.String;
+}
+
+// 表示用のシンボルラベルを整形する
+function formatSymbolLabel(label: string, line: number): string {
+  const lineNumber = line + 1;
+  return `${label} (L${lineNumber})`;
+}
+
+// 通知/メニュー用のシンボルラベルを整形する
+function formatSymbolMenuLabel(label: string, line?: number): string {
+  const lineNumber = typeof line === 'number' ? line + 1 : undefined;
+  return `${label}${lineNumber ? `:${lineNumber}` : ''}`;
+}
+
+// メニュー表示用のラベルを取得する
+function getMenuLabel(item: MyTreeItem): string {
+  if (item.symbolPath) {
+    return formatSymbolMenuLabel(item.symbolPath, item.line);
+  }
+  return item.label;
+}
+
+// 範囲の大きさを比較用の重みに変換する
 function getRangeWeight(range: vscode.Range): number {
   const lineSpan = range.end.line - range.start.line;
   const charSpan = range.end.character - range.start.character;
   return lineSpan * 100000 + Math.max(charSpan, 0);
 }
 
+// カーソル位置のシンボル名を取得する
 async function getSymbolLabelAtPosition(uri: vscode.Uri, position: vscode.Position): Promise<{ label: string } | undefined> {
   const textFallback = await getSymbolLabelFromText(uri, position);
   const symbolResult = await vscode.commands.executeCommand<(vscode.DocumentSymbol[] | vscode.SymbolInformation[])>(
@@ -493,70 +525,130 @@ async function getSymbolLabelAtPosition(uri: vscode.Uri, position: vscode.Positi
   }
 
   // SymbolInformation 形式しか返らない言語へのフォールバック
-  if ('location' in symbolResult[0]) {
+  if (!('children' in symbolResult[0])) {
     const infos = symbolResult as vscode.SymbolInformation[];
-    const scoped = infos
-      .filter((x) => x.location.range.contains(position))
-      .sort((a, b) => getRangeWeight(a.location.range) - getRangeWeight(b.location.range));
+    const scoped = getSymbolInfosAtPosition(infos, position);
     if (scoped.length === 0) {
-      return undefined;
+      return textFallback;
     }
 
-    const member = scoped.find((x) => isMemberLikeKind(x.kind) && !!x.containerName);
-    if (member) {
-      return { label: `${member.containerName}.${member.name}` };
-    }
-
-    const classSymbol = scoped.find((x) => isClassLikeKind(x.kind));
-    if (classSymbol) {
-      return textFallback ?? { label: classSymbol.name };
-    }
-
-    return textFallback ?? { label: scoped[0].name };
+    const leafName = scoped[scoped.length - 1].name;
+    return buildLabelFromSymbolList(scoped, textFallback, leafName);
   }
 
   const symbols = symbolResult as vscode.DocumentSymbol[];
-  const symbolPath = findDeepestSymbolPath(symbols, position);
+  const symbolPath = findBestSymbolPath(symbols, position);
   if (!symbolPath || symbolPath.length === 0) {
+    return textFallback;
+  }
+
+  return buildLabelFromDocumentSymbolPath(symbolPath, textFallback);
+}
+
+// DocumentSymbol のパスからラベルを生成する
+function buildLabelFromDocumentSymbolPath(symbolPath: vscode.DocumentSymbol[], textFallback?: { label: string }): { label: string } {
+  const leafName = symbolPath[symbolPath.length - 1].name;
+  return buildLabelFromSymbolList(symbolPath, textFallback, leafName);
+}
+
+// シンボル列から class/method/string を抽出して結合する
+function buildLabelFromSymbolList(
+  symbols: ReadonlyArray<{ kind: vscode.SymbolKind; name: string }>,
+  textFallback: { label: string } | undefined,
+  leafName: string
+): { label: string } {
+  let className = '';
+  let methodName = '';
+  let stringName = '';
+  for (const symbol of symbols) {
+    if (isClassLikeKind(symbol.kind)) {
+      className = symbol.name;
+    } else if (isMemberLikeKind(symbol.kind)) {
+      methodName = symbol.name;
+    } else if (isStringLikeKind(symbol.kind)) {
+      stringName = symbol.name;
+    }
+  }
+  return buildLabelFromParts(className, methodName, stringName, textFallback, leafName);
+}
+
+// class/method/string を結合してラベルを作る
+function buildLabelFromParts(
+  className: string | undefined,
+  methodName: string | undefined,
+  stringName: string | undefined,
+  textFallback: { label: string } | undefined,
+  leafName: string
+): { label: string } {
+  const parts = [className ?? '', methodName ?? '', stringName ?? ''].filter((x) => x.length > 0);
+  if (parts.length > 0) {
+    return { label: parts.join('.') };
+  }
+  return textFallback ?? { label: leafName };
+}
+
+// 位置に合う最適なシンボルパスを選ぶ
+function findBestSymbolPath(symbols: vscode.DocumentSymbol[], position: vscode.Position): vscode.DocumentSymbol[] | undefined {
+  const candidates = getSymbolPathsAtPosition(symbols, position);
+  if (candidates.length === 0) {
     return undefined;
   }
 
-  const memberSymbol = [...symbolPath].reverse().find((x) => isMemberLikeKind(x.kind));
-  if (memberSymbol) {
-    const classSymbol = [...symbolPath]
-      .reverse()
-      .find((x) => isClassLikeKind(x.kind));
-    if (classSymbol) {
-      return { label: `${classSymbol.name}.${memberSymbol.name}` };
-    }
-    return { label: memberSymbol.name };
-  }
-
-  const classOnly = [...symbolPath].reverse().find((x) => isClassLikeKind(x.kind));
-  if (classOnly) {
-    return textFallback ?? { label: classOnly.name };
-  }
-
-  return textFallback ?? { label: symbolPath[symbolPath.length - 1].name };
+  candidates.sort((a, b) => compareSymbolPathPriority(a, b));
+  return candidates[0];
 }
 
-function findDeepestSymbolPath(symbols: vscode.DocumentSymbol[], position: vscode.Position, chain: vscode.DocumentSymbol[] = []): vscode.DocumentSymbol[] | undefined {
+// 位置に一致するシンボルパスを列挙する
+function getSymbolPathsAtPosition(symbols: vscode.DocumentSymbol[], position: vscode.Position): vscode.DocumentSymbol[][] {
+  const out: vscode.DocumentSymbol[][] = [];
+  collectSymbolPathsShallowToDeep(symbols, position, [], out);
+  return out;
+}
+
+// 位置に一致する SymbolInformation を範囲の広い順（浅い推定順）に並べる
+function getSymbolInfosAtPosition(infos: vscode.SymbolInformation[], position: vscode.Position): vscode.SymbolInformation[] {
+  return infos
+    .filter((x) => x.location.range.contains(position))
+    .sort((a, b) => getRangeWeight(b.location.range) - getRangeWeight(a.location.range));
+}
+
+// 浅い→深い順でパスを収集する
+function collectSymbolPathsShallowToDeep(symbols: vscode.DocumentSymbol[], position: vscode.Position, chain: vscode.DocumentSymbol[], out: vscode.DocumentSymbol[][]): void {
   for (const symbol of symbols) {
     if (!symbol.range.contains(position)) {
       continue;
     }
 
     const nextChain = [...chain, symbol];
-    const childPath = findDeepestSymbolPath(symbol.children, position, nextChain);
-    if (childPath) {
-      return childPath;
+    out.push(nextChain);
+    if (symbol.children.length > 0) {
+      collectSymbolPathsShallowToDeep(symbol.children, position, nextChain, out);
     }
-    return nextChain;
   }
-
-  return undefined;
 }
 
+// シンボルパスの優先度を比較する
+function compareSymbolPathPriority(a: vscode.DocumentSymbol[], b: vscode.DocumentSymbol[]): number {
+  if (a.length !== b.length) {
+    return b.length - a.length;
+  }
+
+  const aLeaf = a[a.length - 1];
+  const bLeaf = b[b.length - 1];
+  const selectionWeightDiff = getRangeWeight(aLeaf.selectionRange) - getRangeWeight(bLeaf.selectionRange);
+  if (selectionWeightDiff !== 0) {
+    return selectionWeightDiff;
+  }
+
+  const rangeWeightDiff = getRangeWeight(aLeaf.range) - getRangeWeight(bLeaf.range);
+  if (rangeWeightDiff !== 0) {
+    return rangeWeightDiff;
+  }
+
+  return aLeaf.name.localeCompare(bLeaf.name);
+}
+
+// テキスト解析でシンボル名を推定する
 async function getSymbolLabelFromText(uri: vscode.Uri, position: vscode.Position): Promise<{ label: string } | undefined> {
   try {
     const doc = await vscode.workspace.openTextDocument(uri);
@@ -593,6 +685,7 @@ async function getSymbolLabelFromText(uri: vscode.Uri, position: vscode.Position
   return undefined;
 }
 
+// 位置を含むメソッド名を探索する
 function findEnclosingMethodName(doc: vscode.TextDocument, line: number, startLine: number): string | undefined {
   const methodDeclarationRegex =
     /^\s*(?:(?:public|private|protected|internal|static|virtual|override|abstract|sealed|new|async|extern|unsafe|partial)\s+)*(?:[A-Za-z_][\w<>\[\],\?\.\s]*\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*\([^;]*\)\s*(?:where\b.*)?(?:\{|=>)?\s*$/;
@@ -619,6 +712,7 @@ function findEnclosingMethodName(doc: vscode.TextDocument, line: number, startLi
   return undefined;
 }
 
+// ブロック終端行を推定する
 function findBlockEndLine(doc: vscode.TextDocument, startLine: number): number | undefined {
   let depth = 0;
   let started = false;
@@ -640,7 +734,7 @@ function findBlockEndLine(doc: vscode.TextDocument, startLine: number): number |
   return undefined;
 }
 
-// パスからuriを取得する
+// パス文字列を VS Code の URI に変換する
 function getUriFromPath(filePath: string): vscode.Uri | null {
   if (path.isAbsolute(filePath)) {
     // 絶対パスならそのまま使う
@@ -656,7 +750,7 @@ function getUriFromPath(filePath: string): vscode.Uri | null {
   return vscode.Uri.file(absolutePath);
 }
 
-// アイテム表示
+// アイテムクリック時の挙動を実行する
 async function ItemClicked(filePath: string, line?: number, column?: number) {
   const uri = getUriFromPath(filePath);
   if (!uri) {
@@ -678,7 +772,7 @@ async function ItemClicked(filePath: string, line?: number, column?: number) {
   }
 }
 
-// vscode.Uri がファイルまたはフォルダか判定する関数
+// URI がファイルかフォルダか判定する
 async function isFileOrFolder(uri: vscode.Uri): Promise<{ isFile: boolean, isDirectory: boolean }> {
   try {
     const stat = await fs.promises.stat(uri.fsPath);

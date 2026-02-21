@@ -2,7 +2,7 @@
   "name": "side-tree",
   "displayName": "SideTree",
   "description": "A custom tree view in the sidebar to organize and navigate your project items.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "publisher": "boukichi",
   "engines": {
     "vscode": "^1.100.0"
@@ -81,7 +81,7 @@
         "command": "sideTreeView.addFolder",
         "title": "New Folder",
         "category": "SideTree",
-        "icon":{
+        "icon": {
           "dark": "media/create_new_folder_dark.svg",
           "light": "media/create_new_folder.svg"
         }
@@ -90,7 +90,7 @@
         "command": "sideTreeView.addFolderInExplorer",
         "title": "New Folder",
         "category": "SideTree",
-        "icon":{
+        "icon": {
           "dark": "media/create_new_folder_dark.svg",
           "light": "media/create_new_folder.svg"
         }
@@ -99,7 +99,7 @@
         "command": "sideTreeView.reloadData",
         "title": "Reload Data",
         "category": "SideTree",
-          "icon":{
+        "icon": {
           "dark": "media/refresh_dark.svg",
           "light": "media/refresh.svg"
         }
@@ -108,7 +108,7 @@
         "command": "sideTreeView.importData",
         "title": "Import Data",
         "category": "SideTree",
-        "icon":{
+        "icon": {
           "dark": "media/place_item_dark.svg",
           "light": "media/place_item.svg"
         }
@@ -146,7 +146,7 @@
       {
         "command": "sideTreeView.addSymbolFromCurrentLine",
         "category": "SideTree",
-        "title": "Add Class.Method to SideTree"
+        "title": "Add Name::Line To SideTree"
       },
       {
         "command": "sideTreeView.moveItemUp",
@@ -177,7 +177,7 @@
         "command": "sideTreeView.foldAllItems",
         "category": "SideTree",
         "title": "Fold All Items",
-        "icon":{
+        "icon": {
           "dark": "media/collapse_all_dark.svg",
           "light": "media/collapse_all.svg"
         }
