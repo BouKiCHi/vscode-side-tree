@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import type { SerializedTreeNode } from './MyTreeDataProvider';
+import { localize } from './localize';
 
 // データマネージャー
 export class SideTreeDataManager {
@@ -113,12 +114,13 @@ export class SideTreeDataManager {
     if (!fs.existsSync(filePath)) {
       // ダイアログで確認する、No/Cancelの場合は保存しない
       const answer = await vscode.window.showInformationMessage(
-        'Do you want to save current data?',
+        localize('sideTree.confirm.saveCurrentData', 'Do you want to save current data?'),
         { modal: true },
-        'Yes', 'No'
+        localize('sideTree.answer.yes', 'Yes'),
+        localize('sideTree.answer.no', 'No')
       );
 
-      if (answer !== 'Yes') {
+      if (answer !== localize('sideTree.answer.yes', 'Yes')) {
         return false;
       }
     }

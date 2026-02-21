@@ -3,6 +3,7 @@ import { MyTreeItem } from './MyTreeItem';
 import { MyTreeQuickPickItem } from './extension';
 import { convertToRelative } from './convertToRelative';
 import { SideTreeDataManager } from './SideTreeDataManager';
+import { localize } from './localize';
 
 export interface SerializedTreeNode {
   name: string;
@@ -33,7 +34,7 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
   constructor(private dataManager: SideTreeDataManager) {
     // ルートノード
     this.nodes[0] = [];
-    const item = this.createItem('SideTree Folder', true);
+    const item = this.createItem(localize('sideTree.rootFolder.label', 'SideTree Folder'), true);
     this.appendNode(item);
     this.load();
   }

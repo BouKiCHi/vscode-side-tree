@@ -6,6 +6,7 @@ import { MyTreeItem } from './MyTreeItem';
 import { MyDnDController } from './MyDnDController';
 import { convertToRelative } from './convertToRelative';
 import { SideTreeDataManager } from './SideTreeDataManager';
+import { localize } from './localize';
 
 // 拡張機能の初期化とコマンド登録を行う
 export function activate(context: vscode.ExtensionContext) {
@@ -88,7 +89,7 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.findItem', async () => {
       const quickPick = vscode.window.createQuickPick();
-      quickPick.placeholder = 'Find Item in SideTree';
+      quickPick.placeholder = localize('sideTree.quickPick.findItem.placeholder', 'Find Item in SideTree');
       quickPick.matchOnDetail = true;
       const searchItems = treeDataProvider.getSearchItems();
       quickPick.items = searchItems;
@@ -122,12 +123,13 @@ export function activate(context: vscode.ExtensionContext) {
 
       // インポートするかを聞く
       const answer = await vscode.window.showInformationMessage(
-        'Do you want to import from clipboard?',
+        localize('sideTree.confirm.importFromClipboard', 'Do you want to import from clipboard?'),
         { modal: true },
-        'Yes', 'No'
+        localize('sideTree.answer.yes', 'Yes'),
+        localize('sideTree.answer.no', 'No')
       );
 
-      if (answer !== 'Yes') {
+      if (answer !== localize('sideTree.answer.yes', 'Yes')) {
         return;
       }
 
@@ -155,7 +157,9 @@ export function activate(context: vscode.ExtensionContext) {
     const folderId = getActiveFolderId();
     await treeDataProvider.addItemWithFolderId(folderId, fileName, false, filePath);
     const folderPath = treeDataProvider.getItemPath(folderId);
-    vscode.window.showInformationMessage(`Added ${fileName} to ${folderPath}`);
+    vscode.window.showInformationMessage(
+      localize('sideTree.message.addedToFolder', 'Added {0} to {1}', fileName, folderPath)
+    );
   }
 
   // タブのファイルを表示する
@@ -194,7 +198,9 @@ export function activate(context: vscode.ExtensionContext) {
       const position = editor?.selection.active ?? new vscode.Position(0, 0);
       const symbolData = await getSymbolLabelAtPosition(targetUri, position);
       if (!symbolData) {
-        vscode.window.showInformationMessage('No class/method symbol found at the current line.');
+        vscode.window.showInformationMessage(
+          localize('sideTree.message.noSymbolFound', 'No class/method symbol found at the current line.')
+        );
         return;
       }
 
@@ -211,7 +217,9 @@ export function activate(context: vscode.ExtensionContext) {
         symbolData.label
       );
       const folderPath = treeDataProvider.getItemPath(folderId);
-      vscode.window.showInformationMessage(`Added ${menuLabel} to ${folderPath}`);
+      vscode.window.showInformationMessage(
+        localize('sideTree.message.addedToFolder', 'Added {0} to {1}', menuLabel, folderPath)
+      );
     })
   );
 
@@ -240,7 +248,9 @@ export function activate(context: vscode.ExtensionContext) {
       const joinPaths = Object.keys(dirs).join(',');
       const joinLabels = Object.keys(labels).join(',');
 
-      vscode.window.showInformationMessage(`Removed ${joinLabels} from ${joinPaths}`);
+      vscode.window.showInformationMessage(
+        localize('sideTree.message.removedFromFolder', 'Removed {0} from {1}', joinLabels, joinPaths)
+      );
     })
   );
 
@@ -263,12 +273,12 @@ export function activate(context: vscode.ExtensionContext) {
 
       const targetItem = selectedItems[0];
       const newLabel = await vscode.window.showInputBox({
-        prompt: `Enter new name for "${targetItem.label}"`,
+        prompt: localize('sideTree.prompt.renameItem', 'Enter new name for "{0}"', targetItem.label),
         placeHolder: targetItem.label,
         value: targetItem.label,
         validateInput: (value) => {
           if (!value.trim()) {
-            return 'Name cannot be empty';
+            return localize('sideTree.validation.nameRequired', 'Name cannot be empty');
           }
           return null;
         }
@@ -353,7 +363,9 @@ export function activate(context: vscode.ExtensionContext) {
       if (fs.existsSync(backupFolder)) {
         vscode.env.openExternal(vscode.Uri.file(backupFolder));
       } else {
-        vscode.window.showInformationMessage(`Backup folder not found: ${backupFolder}`);
+        vscode.window.showInformationMessage(
+          localize('sideTree.message.backupNotFound', 'Backup folder not found: {0}', backupFolder)
+        );
       }
     })
   );
@@ -370,15 +382,17 @@ export function activate(context: vscode.ExtensionContext) {
       const uri = await vscode.window.showSaveDialog({
         defaultUri: defaultUri,
         filters: {
-          'JSON Files': ['json'],
-          'All Files': ['*']
+          [localize('sideTree.filter.jsonFiles', 'JSON Files')]: ['json'],
+          [localize('sideTree.filter.allFiles', 'All Files')]: ['*']
         }
       });
 
       if (uri) {
         const data = treeDataProvider.prepareSerializableNode(0);
         await fs.promises.writeFile(uri.fsPath, JSON.stringify(data, null, 2), 'utf8');
-        vscode.window.showInformationMessage(`SideTree data saved to ${uri.fsPath}`);
+        vscode.window.showInformationMessage(
+          localize('sideTree.message.savedToFile', 'SideTree data saved to {0}', uri.fsPath)
+        );
       }
     })
   );
@@ -397,10 +411,14 @@ async function openDocument(filePath: string, line?: number, column?: number) {
         editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
       }
     } else {
-      vscode.window.showInformationMessage(`Failed to open file: ${filePath}`);
+      vscode.window.showInformationMessage(
+        localize('sideTree.message.failedOpenFile', 'Failed to open file: {0}', filePath)
+      );
     }
   } catch (error) {
-    vscode.window.showInformationMessage(`Failed to open file: ${filePath}`);
+    vscode.window.showInformationMessage(
+      localize('sideTree.message.failedOpenFile', 'Failed to open file: {0}', filePath)
+    );
   }
 }
 
@@ -423,14 +441,14 @@ function getSelectedItems(menuItem: MyTreeItem | undefined, itemList: readonly M
 
 // フォルダ名の入力を促す
 async function inputFolderName(): Promise<string | undefined> {
-  const name = 'New Folder';
+  const name = localize('sideTree.default.folderName', 'New Folder');
   const newLabel = await vscode.window.showInputBox({
-    prompt: 'Enter name for folder',
+    prompt: localize('sideTree.prompt.folderName', 'Enter name for folder'),
     placeHolder: name,
     value: name,
     validateInput: (value) => {
       if (!value.trim()) {
-        return 'Name cannot be empty';
+        return localize('sideTree.validation.nameRequired', 'Name cannot be empty');
       }
       return null;
     }
@@ -488,7 +506,8 @@ function isStringLikeKind(kind: vscode.SymbolKind): boolean {
 // 表示用のシンボルラベルを整形する
 function formatSymbolLabel(label: string, line: number): string {
   const lineNumber = line + 1;
-  return `${label} (L${lineNumber})`;
+  const lineLabel = localize('sideTree.symbol.lineLabel', 'L{0}', lineNumber);
+  return `${label} (${lineLabel})`;
 }
 
 // 通知/メニュー用のシンボルラベルを整形する
@@ -754,13 +773,17 @@ function getUriFromPath(filePath: string): vscode.Uri | null {
 async function ItemClicked(filePath: string, line?: number, column?: number) {
   const uri = getUriFromPath(filePath);
   if (!uri) {
-    vscode.window.showInformationMessage(`Path does not exist: ${filePath}`);
+    vscode.window.showInformationMessage(
+      localize('sideTree.message.pathDoesNotExist', 'Path does not exist: {0}', filePath)
+    );
     return;
   }
 
   const { isFile, isDirectory } = await isFileOrFolder(uri);
   if (!isFile && !isDirectory) {
-    vscode.window.showInformationMessage(`Path does not exist: ${filePath}`);
+    vscode.window.showInformationMessage(
+      localize('sideTree.message.pathDoesNotExist', 'Path does not exist: {0}', filePath)
+    );
     return;
   }
   if (isDirectory) {

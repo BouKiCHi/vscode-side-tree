@@ -1,7 +1,7 @@
 {
   "name": "side-tree",
-  "displayName": "SideTree",
-  "description": "A custom tree view in the sidebar to organize and navigate your project items.",
+  "displayName": "%sideTree.displayName%",
+  "description": "%sideTree.description%",
   "version": "0.1.7",
   "publisher": "boukichi",
   "engines": {
@@ -46,7 +46,7 @@
       "activitybar": [
         {
           "id": "SideTreeContainer",
-          "title": "SideTree",
+          "title": "%sideTree.viewsContainers.activitybar.title%",
           "icon": "media/tree-icon.svg"
         }
       ]
@@ -55,7 +55,7 @@
       "SideTreeContainer": [
         {
           "id": "sideTreeView",
-          "name": "SideTree",
+          "name": "%sideTree.views.sideTreeView.name%",
           "icon": "media/tree-icon.svg"
         }
       ],
@@ -63,24 +63,24 @@
         {
           "icon": "media/tree-icon.svg",
           "id": "sideTreeViewInExplorer",
-          "name": "SideTree in Explorer"
+          "name": "%sideTree.views.sideTreeViewInExplorer.name%"
         }
       ]
     },
     "commands": [
       {
         "command": "sideTreeView.itemClicked",
-        "title": "Item Clicked"
+        "title": "%sideTree.command.itemClicked.title%"
       },
       {
         "command": "sideTreeView.findItem",
-        "title": "Find Item",
-        "category": "SideTree"
+        "title": "%sideTree.command.findItem.title%",
+        "category": "%sideTree.command.category%"
       },
       {
         "command": "sideTreeView.addFolder",
-        "title": "New Folder",
-        "category": "SideTree",
+        "title": "%sideTree.command.addFolder.title%",
+        "category": "%sideTree.command.category%",
         "icon": {
           "dark": "media/create_new_folder_dark.svg",
           "light": "media/create_new_folder.svg"
@@ -88,8 +88,8 @@
       },
       {
         "command": "sideTreeView.addFolderInExplorer",
-        "title": "New Folder",
-        "category": "SideTree",
+        "title": "%sideTree.command.addFolder.title%",
+        "category": "%sideTree.command.category%",
         "icon": {
           "dark": "media/create_new_folder_dark.svg",
           "light": "media/create_new_folder.svg"
@@ -97,8 +97,8 @@
       },
       {
         "command": "sideTreeView.reloadData",
-        "title": "Reload Data",
-        "category": "SideTree",
+        "title": "%sideTree.command.reloadData.title%",
+        "category": "%sideTree.command.category%",
         "icon": {
           "dark": "media/refresh_dark.svg",
           "light": "media/refresh.svg"
@@ -106,8 +106,8 @@
       },
       {
         "command": "sideTreeView.importData",
-        "title": "Import Data",
-        "category": "SideTree",
+        "title": "%sideTree.command.importData.title%",
+        "category": "%sideTree.command.category%",
         "icon": {
           "dark": "media/place_item_dark.svg",
           "light": "media/place_item.svg"
@@ -115,68 +115,68 @@
       },
       {
         "command": "sideTreeView.removeItem",
-        "category": "SideTree",
-        "title": "Remove"
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.removeItem.title%"
       },
       {
         "command": "sideTreeView.renameItem",
-        "category": "SideTree",
-        "title": "Change Label"
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.renameItem.title%"
       },
       {
         "command": "sideTreeView.copyPath",
-        "category": "SideTree",
-        "title": "Copy Path"
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.copyPath.title%"
       },
       {
         "command": "sideTreeView.addItemFromTab",
-        "category": "SideTree",
-        "title": "Add to SideTree"
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.addItemFromTab.title%"
       },
       {
         "command": "sideTreeView.addItemFromExplorer",
-        "category": "SideTree",
-        "title": "Add to SideTree"
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.addItemFromExplorer.title%"
       },
       {
         "command": "sideTreeView.revealItem",
-        "category": "SideTree",
-        "title": "Reveal Item in SideTree"
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.revealItem.title%"
       },
       {
         "command": "sideTreeView.addSymbolFromCurrentLine",
-        "category": "SideTree",
-        "title": "Add Name::Line To SideTree"
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.addSymbolFromCurrentLine.title%"
       },
       {
         "command": "sideTreeView.moveItemUp",
-        "category": "SideTree",
-        "title": "Move Item Up"
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.moveItemUp.title%"
       },
       {
         "command": "sideTreeView.moveItemDown",
-        "category": "SideTree",
-        "title": "Move Item Down"
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.moveItemDown.title%"
       },
       {
         "command": "sideTreeView.moveItemParent",
-        "category": "SideTree",
-        "title": "Move Item Parent"
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.moveItemParent.title%"
       },
       {
         "command": "sideTreeView.sortItems",
-        "category": "SideTree",
-        "title": "Sort Items In Folder"
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.sortItems.title%"
       },
       {
         "command": "sideTreeView.sortRootFolder",
-        "category": "SideTree",
-        "title": "Sort Root Folder"
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.sortRootFolder.title%"
       },
       {
         "command": "sideTreeView.foldAllItems",
-        "category": "SideTree",
-        "title": "Fold All Items",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.foldAllItems.title%",
         "icon": {
           "dark": "media/collapse_all_dark.svg",
           "light": "media/collapse_all.svg"
@@ -184,13 +184,13 @@
       },
       {
         "command": "sideTreeView.openBackupFolder",
-        "category": "SideTree",
-        "title": "Open Backup Folder"
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.openBackupFolder.title%"
       },
       {
         "command": "sideTreeView.saveAs",
-        "category": "SideTree",
-        "title": "Save as (export JSON)"
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.saveAs.title%"
       }
     ],
     "menus": {
@@ -324,15 +324,18 @@
     "lint": "eslint src",
     "test": "vscode-test"
   },
+  "dependencies": {
+    "vscode-nls": "^5.2.0"
+  },
   "devDependencies": {
-    "@types/vscode": "^1.100.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
+    "@types/vscode": "^1.100.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
-    "eslint": "^9.25.1",
-    "typescript": "^5.8.3",
-    "@vscode/test-cli": "^0.0.10",
-    "@vscode/test-electron": "^2.5.2"
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^2.5.2",
+    "eslint": "^10.0.1",
+    "typescript": "^5.8.3"
   }
 }

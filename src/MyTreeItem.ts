@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { localize } from './localize';
 
 // ツリーアイテムのクラス
 
@@ -18,7 +19,9 @@ export class MyTreeItem extends vscode.TreeItem {
     const collapsibleState: vscode.TreeItemCollapsibleState = isFolder ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None;
 
     super(label, collapsibleState);
-    this.tooltip = `${filePath ? `Path: ${filePath}` : ''}${typeof line === 'number' ? `:${line + 1}:${(column ?? 0) + 1}` : ''}`;
+    const pathTooltip = filePath ? localize('sideTree.tooltip.path', 'Path: {0}', filePath) : '';
+    const lineSuffix = typeof line === 'number' ? `:${line + 1}:${(column ?? 0) + 1}` : '';
+    this.tooltip = `${pathTooltip}${lineSuffix}`;
     // this.description = `Description for ${label}`;
     // isFolderの値に基づいてアイコンを設定
     this.iconPath = new vscode.ThemeIcon(isFolder ? 'folder' : 'file');
@@ -27,7 +30,7 @@ export class MyTreeItem extends vscode.TreeItem {
     if (commandId) {
       this.command = {
         command: commandId,
-        title: 'Item Clicked',
+        title: localize('sideTree.command.itemClicked.title', 'Item Clicked'),
         arguments: [{ label, collapsibleState, filePath, itemId, isFolder, line, column, symbolPath }]
       };
     }

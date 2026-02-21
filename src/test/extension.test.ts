@@ -4,6 +4,7 @@ import * as path from 'path';
 import { MyTreeDataProvider, SerializedTreeNode } from '../MyTreeDataProvider';
 import { SideTreeDataManager } from '../SideTreeDataManager';
 import { convertToRelative } from '../convertToRelative';
+import { localize } from '../localize';
 
 class MockSideTreeDataManager {
   public lastSavedJson: string | null = null;
@@ -25,6 +26,7 @@ suite('Extension Test Suite', () => {
   test('add/remove keeps tree and search index consistent', async () => {
     const mockManager = new MockSideTreeDataManager();
     const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+    const rootLabel = localize('sideTree.rootFolder.label', 'SideTree Folder');
 
     const folder = await provider.addItemWithFolderId(0, 'FolderA', true);
     const fileInFolder = await provider.addItemWithFolderId(folder.itemId, 'a.ts', false, 'a.ts');
@@ -38,7 +40,7 @@ suite('Extension Test Suite', () => {
     provider.removeItem(folder.itemId);
 
     const afterRemove = provider.prepareSerializableNode(0);
-    assert.deepStrictEqual(afterRemove.map((x) => x.name), ['SideTree Folder', 'root.ts']);
+    assert.deepStrictEqual(afterRemove.map((x) => x.name), [rootLabel, 'root.ts']);
 
     const searchItems = provider.getSearchItems();
     const remainingIds = new Set(searchItems.map((x) => x.itemId));
@@ -57,6 +59,7 @@ suite('Extension Test Suite', () => {
   test('move and sort operations update order as expected', async () => {
     const mockManager = new MockSideTreeDataManager();
     const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+    const rootLabel = localize('sideTree.rootFolder.label', 'SideTree Folder');
 
     const itemA = await provider.addItemWithFolderId(0, 'A.ts', false, 'A.ts');
     const itemB = await provider.addItemWithFolderId(0, 'B.ts', false, 'B.ts');
@@ -66,11 +69,11 @@ suite('Extension Test Suite', () => {
     provider.moveItemDown(itemA.itemId);
 
     let order = provider.prepareSerializableNode(0).map((x) => x.name);
-    assert.deepStrictEqual(order, ['SideTree Folder', 'C.ts', 'A.ts', 'B.ts']);
+    assert.deepStrictEqual(order, [rootLabel, 'C.ts', 'A.ts', 'B.ts']);
 
     provider.sortItemInFolder(0);
     order = provider.prepareSerializableNode(0).map((x) => x.name);
-    assert.deepStrictEqual(order, ['A.ts', 'B.ts', 'C.ts', 'SideTree Folder']);
+    assert.deepStrictEqual(order, ['A.ts', 'B.ts', 'C.ts', rootLabel]);
 
     const folder = await provider.addItemWithFolderId(0, 'Parent', true);
     const child = await provider.addItemWithFolderId(folder.itemId, 'Child.ts', false, 'Child.ts');
