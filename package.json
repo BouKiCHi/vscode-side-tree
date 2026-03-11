@@ -2,7 +2,7 @@
   "name": "side-tree",
   "displayName": "%sideTree.displayName%",
   "description": "%sideTree.description%",
-  "version": "0.1.8",
+  "version": "0.2.0",
   "publisher": "boukichi",
   "engines": {
     "vscode": "^1.100.0"
@@ -114,6 +114,16 @@
         }
       },
       {
+        "command": "sideTreeView.importJsonFile",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.importJsonFile.title%"
+      },
+      {
+        "command": "sideTreeView.replaceWithJsonFile",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.replaceWithJsonFile.title%"
+      },
+      {
         "command": "sideTreeView.removeItem",
         "category": "%sideTree.command.category%",
         "title": "%sideTree.command.removeItem.title%"
@@ -127,6 +137,16 @@
         "command": "sideTreeView.copyPath",
         "category": "%sideTree.command.category%",
         "title": "%sideTree.command.copyPath.title%"
+      },
+      {
+        "command": "sideTreeView.openItemToSide",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.openItemToSide.title%"
+      },
+      {
+        "command": "sideTreeView.revealInExplorerView",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.revealInExplorerView.title%"
       },
       {
         "command": "sideTreeView.addItemFromTab",
@@ -207,32 +227,42 @@
       "view/item/context": [
         {
           "command": "sideTreeView.renameItem",
-          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "when": "(view == sideTreeView || view == sideTreeViewInExplorer) && (viewItem == sideTreeVirtualFolderItem || viewItem == sideTreeFileItem || viewItem == sideTreeLinkedFolderItem)",
           "group": "1_modification@1"
         },
         {
-          "command": "sideTreeView.removeItem",
+          "command": "sideTreeView.openItemToSide",
+          "when": "(view == sideTreeView || view == sideTreeViewInExplorer) && viewItem == sideTreeFileItem",
+          "group": "0_open@1"
+        },
+        {
+          "command": "sideTreeView.revealInExplorerView",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "0_open@2"
+        },
+        {
+          "command": "sideTreeView.removeItem",
+          "when": "(view == sideTreeView || view == sideTreeViewInExplorer) && (viewItem == sideTreeVirtualFolderItem || viewItem == sideTreeFileItem || viewItem == sideTreeLinkedFolderItem)",
           "group": "1_modification@2"
         },
         {
           "command": "sideTreeView.addFolder",
-          "when": "view == sideTreeView",
+          "when": "view == sideTreeView && viewItem == sideTreeVirtualFolderItem",
           "group": "1_modification@3"
         },
         {
           "command": "sideTreeView.addFolderInExplorer",
-          "when": "view == sideTreeViewInExplorer",
+          "when": "view == sideTreeViewInExplorer && viewItem == sideTreeVirtualFolderItem",
           "group": "1_modification@3"
         },
         {
           "command": "sideTreeView.sortItems",
-          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "when": "(view == sideTreeView || view == sideTreeViewInExplorer) && viewItem == sideTreeVirtualFolderItem",
           "group": "1_modification@4"
         },
         {
           "command": "sideTreeView.importData",
-          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "when": "(view == sideTreeView || view == sideTreeViewInExplorer) && viewItem == sideTreeVirtualFolderItem",
           "group": "1_modification@5"
         },
         {
@@ -242,17 +272,17 @@
         },
         {
           "command": "sideTreeView.moveItemParent",
-          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "when": "(view == sideTreeView || view == sideTreeViewInExplorer) && (viewItem == sideTreeVirtualFolderItem || viewItem == sideTreeFileItem || viewItem == sideTreeLinkedFolderItem)",
           "group": "2_move_modification@1"
         },
         {
           "command": "sideTreeView.moveItemUp",
-          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "when": "(view == sideTreeView || view == sideTreeViewInExplorer) && (viewItem == sideTreeVirtualFolderItem || viewItem == sideTreeFileItem || viewItem == sideTreeLinkedFolderItem)",
           "group": "2_move_modification@2"
         },
         {
           "command": "sideTreeView.moveItemDown",
-          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "when": "(view == sideTreeView || view == sideTreeViewInExplorer) && (viewItem == sideTreeVirtualFolderItem || viewItem == sideTreeFileItem || viewItem == sideTreeLinkedFolderItem)",
           "group": "2_move_modification@3"
         }
       ],
@@ -288,9 +318,19 @@
           "group": "other@2"
         },
         {
-          "command": "sideTreeView.saveAs",
+          "command": "sideTreeView.importJsonFile",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "other@3"
+        },
+        {
+          "command": "sideTreeView.replaceWithJsonFile",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "other@4"
+        },
+        {
+          "command": "sideTreeView.saveAs",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "other@5"
         }
       ],
       "editor/title/context": [

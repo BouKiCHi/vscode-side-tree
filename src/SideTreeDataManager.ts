@@ -37,13 +37,18 @@ export class SideTreeDataManager {
     const filePath = this.getJsonFilename();
     try {
       const data: unknown = JSON.parse(await fs.promises.readFile(filePath, 'utf8'));
-      if (!this.isSerializedTreeNodeArray(data)) {
-        return null;
-      }
-      return data;
+      return this.parseSerializedTreeData(data);
     } catch (e) {
       return null;
     }
+  }
+
+  parseSerializedTreeData(data: unknown): SerializedTreeNode[] | null {
+    if (!this.isSerializedTreeNodeArray(data)) {
+      return null;
+    }
+
+    return data;
   }
 
   // データを保存する
@@ -155,6 +160,10 @@ export class SideTreeDataManager {
     }
 
     if (typeof candidate.isFolder !== 'boolean') {
+      return false;
+    }
+
+    if (!(typeof candidate.itemType === 'undefined' || typeof candidate.itemType === 'string')) {
       return false;
     }
 

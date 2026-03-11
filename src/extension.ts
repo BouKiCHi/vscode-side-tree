@@ -51,6 +51,11 @@ export function activate(context: vscode.ExtensionContext) {
       await ItemClicked(args.filePath, args.line, args.column);
     })
   );
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.folderClicked', async () => {
+      await vscode.commands.executeCommand('list.expand');
+    })
+  );
 
   // フォルダ追加コマンドの登録 エクスプローラ内のツリー
   context.subscriptions.push(
@@ -149,13 +154,123 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // JSONファイルからデータをインポート
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.importJsonFile', async () => {
+      const defaultUri = vscode.Uri.file(dataManager.getJsonFilename());
+      const uri = await vscode.window.showOpenDialog({
+        defaultUri,
+        canSelectMany: false,
+        openLabel: localize('sideTree.openDialog.importJson', 'Import JSON'),
+        filters: {
+          [localize('sideTree.filter.jsonFiles', 'JSON Files')]: ['json'],
+          [localize('sideTree.filter.allFiles', 'All Files')]: ['*']
+        }
+      });
+
+      if (!uri?.length) {
+        return;
+      }
+
+      const answer = await vscode.window.showInformationMessage(
+        localize('sideTree.confirm.importFromJsonFile', 'Import from JSON file into the selected folder?'),
+        { modal: true },
+        localize('sideTree.answer.yes', 'Yes'),
+        localize('sideTree.answer.no', 'No')
+      );
+
+      if (answer !== localize('sideTree.answer.yes', 'Yes')) {
+        return;
+      }
+
+      try {
+        const raw = await fs.promises.readFile(uri[0].fsPath, 'utf8');
+        const parsed: unknown = JSON.parse(raw);
+        const data = dataManager.parseSerializedTreeData(parsed);
+        if (!data) {
+          vscode.window.showErrorMessage(
+            localize('sideTree.message.invalidJsonImport', 'The selected JSON file is not a valid SideTree export.')
+          );
+          return;
+        }
+
+        const folderId = getActiveFolderId();
+        await treeDataProvider.importItems(folderId, data);
+        vscode.window.showInformationMessage(
+          localize('sideTree.message.importedFromJsonFile', 'Imported SideTree data from {0}', uri[0].fsPath)
+        );
+      } catch {
+        vscode.window.showErrorMessage(
+          localize('sideTree.message.failedImportJsonFile', 'Failed to import JSON file: {0}', uri[0].fsPath)
+        );
+      }
+    })
+  );
+
+  // JSONファイルで現在データを置き換え
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.replaceWithJsonFile', async () => {
+      const defaultUri = vscode.Uri.file(dataManager.getJsonFilename());
+      const uri = await vscode.window.showOpenDialog({
+        defaultUri,
+        canSelectMany: false,
+        openLabel: localize('sideTree.openDialog.replaceWithJson', 'Replace with JSON'),
+        filters: {
+          [localize('sideTree.filter.jsonFiles', 'JSON Files')]: ['json'],
+          [localize('sideTree.filter.allFiles', 'All Files')]: ['*']
+        }
+      });
+
+      if (!uri?.length) {
+        return;
+      }
+
+      const answer = await vscode.window.showInformationMessage(
+        localize('sideTree.confirm.replaceWithJsonFile', 'Replace current SideTree data with the selected JSON file?'),
+        { modal: true },
+        localize('sideTree.answer.yes', 'Yes'),
+        localize('sideTree.answer.no', 'No')
+      );
+
+      if (answer !== localize('sideTree.answer.yes', 'Yes')) {
+        return;
+      }
+
+      try {
+        const raw = await fs.promises.readFile(uri[0].fsPath, 'utf8');
+        const parsed: unknown = JSON.parse(raw);
+        const data = dataManager.parseSerializedTreeData(parsed);
+        if (!data) {
+          vscode.window.showErrorMessage(
+            localize('sideTree.message.invalidJsonImport', 'The selected JSON file is not a valid SideTree export.')
+          );
+          return;
+        }
+
+        await treeDataProvider.replaceAll(data);
+        vscode.window.showInformationMessage(
+          localize('sideTree.message.replacedFromJsonFile', 'Replaced SideTree data from {0}', uri[0].fsPath)
+        );
+      } catch {
+        vscode.window.showErrorMessage(
+          localize('sideTree.message.failedImportJsonFile', 'Failed to import JSON file: {0}', uri[0].fsPath)
+        );
+      }
+    })
+  );
+
   // 指定ファイルをサイドツリーに追加する
   async function appendFile(resource: vscode.Uri) {
     const filePath = resource.fsPath;
     const fileName = path.basename(filePath);
     // フォルダIDの取得
     const folderId = getActiveFolderId();
-    await treeDataProvider.addItemWithFolderId(folderId, fileName, false, filePath);
+    const stat = await fs.promises.stat(filePath);
+    if (stat.isDirectory()) {
+      await treeDataProvider.addLinkedFolderWithFolderId(folderId, fileName, filePath);
+    } else {
+      await treeDataProvider.addItemWithFolderId(folderId, fileName, false, filePath);
+    }
     const folderPath = treeDataProvider.getItemPath(folderId);
     vscode.window.showInformationMessage(
       localize('sideTree.message.addedToFolder', 'Added {0} to {1}', fileName, folderPath)
@@ -280,7 +395,10 @@ export function activate(context: vscode.ExtensionContext) {
   // アイテム削除コマンドの登録
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.removeItem', async (menuItem: MyTreeItem) => {
-      const list = getSelectedItems(menuItem, getActiveSelection());
+      const list = getSelectedItems(menuItem, getActiveSelection()).filter((item) => !item.isTransient);
+      if (!list.length) {
+        return;
+      }
       const labels: { [key: string]: boolean } = {};
       const dirs: { [key: string]: boolean } = {};
       for (const item of list) {
@@ -308,10 +426,42 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // アイテムを右側で開く
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.openItemToSide', async (menuItem: MyTreeItem) => {
+      const list = getSelectedItems(menuItem, getActiveSelection());
+      for (const item of list) {
+        if (!item.filePath || item.isFolder) {
+          continue;
+        }
+        await openDocument(item.filePath, item.line, item.column, vscode.ViewColumn.Beside);
+      }
+    })
+  );
+
+  // アイテムをエクスプローラービューで開く
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.revealInExplorerView', async (menuItem: MyTreeItem) => {
+      const list = getSelectedItems(menuItem, getActiveSelection());
+      for (const item of list) {
+        if (!item.filePath) {
+          continue;
+        }
+
+        const uri = getUriFromPath(item.filePath);
+        if (!uri) {
+          continue;
+        }
+
+        await vscode.commands.executeCommand('revealInExplorer', uri);
+      }
+    })
+  );
+
   // アイテムリネームコマンドの登録
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.renameItem', async (menuItem: MyTreeItem) => {
-      const selectedItems = getActiveSelection();
+      const selectedItems = getActiveSelection().filter((item) => !item.isTransient);
       if (!selectedItems.length) {
         return;
       }
@@ -340,7 +490,7 @@ export function activate(context: vscode.ExtensionContext) {
   // 上に移動
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.moveItemUp', async (menuItem: MyTreeItem) => {
-      const list = getSelectedItems(menuItem, getActiveSelection());
+      const list = getSelectedItems(menuItem, getActiveSelection()).filter((item) => !item.isTransient);
       for (const item of list) {
         treeDataProvider.moveItemUp(item.itemId);
       }
@@ -350,7 +500,7 @@ export function activate(context: vscode.ExtensionContext) {
   // 下に移動
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.moveItemDown', async (menuItem: MyTreeItem) => {
-      const list = getSelectedItems(menuItem, getActiveSelection());
+      const list = getSelectedItems(menuItem, getActiveSelection()).filter((item) => !item.isTransient);
       for (const item of list) {
         treeDataProvider.moveItemDown(item.itemId);
       }
@@ -360,7 +510,7 @@ export function activate(context: vscode.ExtensionContext) {
   // 親フォルダの上に移動する
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.moveItemParent', async (menuItem: MyTreeItem) => {
-      const list = getSelectedItems(menuItem, getActiveSelection());
+      const list = getSelectedItems(menuItem, getActiveSelection()).filter((item) => !item.isTransient);
       for (const item of list) {
         treeDataProvider.moveItemParent(item.itemId);
       }
@@ -381,7 +531,7 @@ export function activate(context: vscode.ExtensionContext) {
       const list = getSelectedItems(menuItem, getActiveSelection());
 
       for (const item of list) {
-        if (!item.isFolder) {
+        if (item.itemType !== 'virtualFolder') {
           continue;
         }
         treeDataProvider.sortItemInFolder(item.itemId);
@@ -444,12 +594,16 @@ export function activate(context: vscode.ExtensionContext) {
 }
 
 // ファイルを開き指定位置へ移動する
-async function openDocument(filePath: string, line?: number, column?: number) {
+async function openDocument(filePath: string, line?: number, column?: number, viewColumn?: vscode.ViewColumn) {
   try {
     const uri = getUriFromPath(filePath);
     if (uri) {
       const doc = await vscode.workspace.openTextDocument(uri);
-      const editor = await vscode.window.showTextDocument(doc, { preserveFocus: true });
+      const editor = await vscode.window.showTextDocument(doc, {
+        preserveFocus: true,
+        preview: false,
+        viewColumn
+      });
       if (typeof line === 'number') {
         const position = new vscode.Position(line, column ?? 0);
         editor.selection = new vscode.Selection(position, position);
@@ -519,8 +673,8 @@ function getFolderId(selectedItems: readonly MyTreeItem[]): number {
     return 0;
   }
 
-  // フォルダの場合はそのもの、それ以外は親フォルダ
-  const folderId = folderItem.isFolder ? folderItem.itemId : folderItem.parentId;
+  // 仮想フォルダのみ子を保持できる
+  const folderId = folderItem.itemType === 'virtualFolder' ? folderItem.itemId : folderItem.parentId;
   return folderId;
 }
 
@@ -530,7 +684,7 @@ export function getTargetFolderItemId(target: MyTreeItem | undefined) {
     return 0;
   }
 
-  return target.isFolder ? target.itemId : target.parentId;
+  return target.itemType === 'virtualFolder' ? target.itemId : target.parentId;
 }
 
 // クラス相当のシンボル種別か判定する

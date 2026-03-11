@@ -23,7 +23,7 @@ export class MyDnDController implements vscode.TreeDragAndDropController<MyTreeI
     const raw = dataTransfer.get('application/vnd.code.tree.sideTreeView')?.value;
 
     // フォルダかルート以外はドロップできない
-    const isFolderDrop = (target && target.isFolder) || !target;
+    const isFolderDrop = (target && target.itemType === 'virtualFolder') || !target;
 
     // アイテム移動
     if (raw && raw.length) {

@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.2.0
+- Added `linkedFolder` support so directories added from Explorer can be expanded recursively inside SideTree.
+- Added context menu commands to open items to the side and reveal them in Explorer.
+- Added JSON import commands for appending into the selected folder and replacing current SideTree data.
+- Linked folders cache their children for the current session; changes on disk may require reloading SideTree to refresh.
+- `Import JSON File` appends into the current target folder determined by the current selection. If a file or linked folder is selected, items are imported into its parent virtual folder.
+
 ## 0.1.8
 - Added localization infrastructure using `package.nls.json` / `package.nls.ja.json` and a shared `localize(...)` helper for runtime messages.
 - Localized extension contributions and UI messages for English/Japanese.

@@ -1,4 +1,6 @@
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as os from 'os';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { MyTreeDataProvider, SerializedTreeNode } from '../MyTreeDataProvider';
@@ -101,5 +103,84 @@ suite('Extension Test Suite', () => {
 
     assert.strictEqual(insideRelative, 'src/index.ts');
     assert.strictEqual(outsideUnchanged, outside);
+  });
+
+  test('linked folder nodes are serialized without children and load filesystem entries recursively', async () => {
+    const tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'sidetree-linked-'));
+    const nestedDir = path.join(tempRoot, 'nested');
+    const nestedFile = path.join(nestedDir, 'child.txt');
+    await fs.promises.mkdir(nestedDir, { recursive: true });
+    await fs.promises.writeFile(nestedFile, 'ok', 'utf8');
+
+    try {
+      const mockManager = new MockSideTreeDataManager();
+      const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+
+      const linked = await provider.addLinkedFolderWithFolderId(0, path.basename(tempRoot), tempRoot);
+      const serialized = provider.prepareSerializableNode(0);
+      const linkedRow = serialized.find((x) => x.name === path.basename(tempRoot));
+
+      assert.ok(linkedRow);
+      assert.strictEqual(linkedRow?.itemType, 'linkedFolder');
+      assert.deepStrictEqual(linkedRow?.children, []);
+
+      const firstLevel = await provider.getChildren(linked);
+      const nestedFolderItem = firstLevel.find((x) => x.label === 'nested');
+      assert.ok(nestedFolderItem);
+      assert.strictEqual(nestedFolderItem?.itemType, 'linkedFolder');
+
+      const secondLevel = await provider.getChildren(nestedFolderItem);
+      assert.deepStrictEqual(secondLevel.map((x) => x.label), ['child.txt']);
+    } finally {
+      await fs.promises.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
+
+  test('replaceAll swaps tree contents with imported serialized data', async () => {
+    const mockManager = new MockSideTreeDataManager();
+    const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+
+    await provider.addItemWithFolderId(0, 'before.ts', false, 'before.ts');
+    await provider.replaceAll([
+      {
+        name: 'Imported Folder',
+        isFolder: true,
+        itemType: 'virtualFolder',
+        children: [
+          {
+            name: 'inside.ts',
+            isFolder: false,
+            itemType: 'file',
+            filePath: 'inside.ts',
+            children: []
+          }
+        ]
+      }
+    ]);
+
+    const rootRows = provider.prepareSerializableNode(0);
+    assert.deepStrictEqual(rootRows.map((x) => x.name), ['Imported Folder']);
+    assert.deepStrictEqual(rootRows[0].children.map((x) => x.name), ['inside.ts']);
+  });
+
+  test('importItems appends imported serialized data under the target folder', async () => {
+    const mockManager = new MockSideTreeDataManager();
+    const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+
+    const folder = await provider.addItemWithFolderId(0, 'Target', true);
+    await provider.importItems(folder.itemId, [
+      {
+        name: 'Imported File.ts',
+        isFolder: false,
+        itemType: 'file',
+        filePath: 'Imported File.ts',
+        children: []
+      }
+    ]);
+
+    const rootRows = provider.prepareSerializableNode(0);
+    const target = rootRows.find((x) => x.name === 'Target');
+    assert.ok(target);
+    assert.deepStrictEqual(target?.children.map((x) => x.name), ['Imported File.ts']);
   });
 });
