@@ -9,6 +9,7 @@ import { localize } from './localize';
 
 export interface SerializedTreeNode {
   name: string;
+  description?: string;
   isFolder: boolean;
   itemType?: TreeItemType;
   filePath?: string;
@@ -116,12 +117,13 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     line?: number,
     column?: number,
     symbolPath?: string,
+    description?: string,
     isTransient: boolean = false
   ): MyTreeItem {
     if (filePath) {
       filePath = convertToRelative(filePath);
     }
-    return new MyTreeItem(this.itemIdCount++, label, isFolder, itemType, this.fileCommandId, this.folderCommandId, filePath, line, column, symbolPath, isTransient);
+    return new MyTreeItem(this.itemIdCount++, label, isFolder, itemType, this.fileCommandId, this.folderCommandId, filePath, line, column, symbolPath, description, isTransient);
   }
 
 
@@ -156,6 +158,22 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     }
 
     item.label = newLabel;
+    this.update();
+  }
+
+  changeDescription(itemId: number, newDescription?: string) {
+    const item = this.getItemByItemId(itemId);
+    if (!item) {
+      return;
+    }
+
+    item.note = newDescription;
+    item.description = newDescription;
+
+    const pathTooltip = item.filePath ? localize('sideTree.tooltip.path', 'Path: {0}', item.filePath) : '';
+    const lineSuffix = typeof item.line === 'number' ? `:${item.line + 1}:${(item.column ?? 0) + 1}` : '';
+    const noteTooltip = newDescription ? `${pathTooltip || lineSuffix ? '\n' : ''}${newDescription}` : '';
+    item.tooltip = `${pathTooltip}${lineSuffix}${noteTooltip}`;
     this.update();
   }
 
@@ -288,6 +306,43 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     this.update();
   }
 
+  // アイテムを現在のフォルダの一番上に移動する
+  moveItemsTop(itemIds: number[]) {
+    const groupedItems = new Map<number, MyTreeItem[]>();
+
+    for (const itemId of itemIds) {
+      const item = this.getItemByItemId(itemId);
+      if (!item) {
+        continue;
+      }
+
+      const group = groupedItems.get(item.parentId);
+      if (group) {
+        group.push(item);
+      } else {
+        groupedItems.set(item.parentId, [item]);
+      }
+    }
+
+    for (const [parentId, items] of groupedItems) {
+      const nodeList = this.nodes[parentId];
+      if (!nodeList || items.length === 0) {
+        continue;
+      }
+
+      const itemIdSet = new Set(items.map((item) => item.itemId));
+      const movingItems = nodeList.filter((item) => itemIdSet.has(item.itemId));
+      if (movingItems.length === 0) {
+        continue;
+      }
+
+      const remainingItems = nodeList.filter((item) => !itemIdSet.has(item.itemId));
+      this.nodes[parentId] = [...movingItems, ...remainingItems];
+    }
+
+    this.update();
+  }
+
   // アイテムを現在のフォルダで一つ下に移動する
   moveItemDown(itemId: number) {
     const item = this.getItemByItemId(itemId);
@@ -370,18 +425,18 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
   }
 
   // 新しいアイテムを追加
-  async addItem(folderId: number, name: string, isFolder: boolean, filePath?: string, line?: number, column?: number, symbolPath?: string) {
+  async addItem(folderId: number, name: string, isFolder: boolean, filePath?: string, line?: number, column?: number, symbolPath?: string, description?: string) {
     const itemType = this.resolveItemType(isFolder, symbolPath);
-    const newItem = this.createItem(name, isFolder, itemType, filePath, line, column, symbolPath);
+    const newItem = this.createItem(name, isFolder, itemType, filePath, line, column, symbolPath, description);
     newItem.parentId = folderId;
     this.appendNode(newItem);
     await this.update();
   }
 
   // 新しい項目を追加
-  async addItemWithFolderId(folderId: number, name: string, isFolder: boolean, filePath?: string, line?: number, column?: number, symbolPath?: string): Promise<MyTreeItem> {
+  async addItemWithFolderId(folderId: number, name: string, isFolder: boolean, filePath?: string, line?: number, column?: number, symbolPath?: string, description?: string): Promise<MyTreeItem> {
     const itemType = this.resolveItemType(isFolder, symbolPath);
-    const newItem = this.createItem(name, isFolder, itemType, filePath, line, column, symbolPath);
+    const newItem = this.createItem(name, isFolder, itemType, filePath, line, column, symbolPath, description);
     newItem.parentId = folderId;
     this.appendNode(newItem);
     await this.update();
@@ -427,20 +482,19 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
         continue;
       }
 
-      let children: SerializedTreeNode[] = [];
-      if (item.itemType === 'virtualFolder') {
-        children = this.prepareSerializableNode(item.itemId);
+      data.push(this.serializeItem(item));
+    }
+    return data;
+  }
+
+  prepareSerializableItems(items: readonly MyTreeItem[]): SerializedTreeNode[] {
+    const data: SerializedTreeNode[] = [];
+    for (const item of items) {
+      if (item.isTransient) {
+        continue;
       }
-      data.push({
-        name: item.label,
-        isFolder: item.isFolder,
-        itemType: item.itemType,
-        filePath: item.filePath,
-        line: item.line,
-        column: item.column,
-        symbolPath: item.symbolPath,
-        children: children
-      });
+
+      data.push(this.serializeItem(item));
     }
     return data;
   }
@@ -458,6 +512,28 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
   async importItems(parentId: number, data: SerializedTreeNode[]) {
     this.appendItems(parentId, data);
+    await this.update();
+  }
+
+  async importItemsAfter(targetItemId: number, data: SerializedTreeNode[]) {
+    const targetItem = this.getItemByItemId(targetItemId);
+    if (!targetItem) {
+      return;
+    }
+
+    const parentId = targetItem.parentId;
+    const nodeList = this.nodes[parentId];
+    if (!nodeList) {
+      return;
+    }
+
+    const insertIndex = nodeList.findIndex((item) => item.itemId === targetItemId);
+    if (insertIndex === -1) {
+      return;
+    }
+
+    const importedItems = this.buildItems(parentId, data);
+    nodeList.splice(insertIndex + 1, 0, ...importedItems);
     await this.update();
   }
 
@@ -482,15 +558,29 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
   // 追加
   appendItems(parentId: number, data: SerializedTreeNode[]) {
+    const items = this.buildItems(parentId, data);
+    if (!this.nodes[parentId]) {
+      this.nodes[parentId] = [];
+    }
+    this.nodes[parentId].push(...items);
+  }
+
+  private buildItems(parentId: number, data: SerializedTreeNode[]): MyTreeItem[] {
+    const items: MyTreeItem[] = [];
     for (const row of data) {
       const itemType = row.itemType ?? this.resolveItemType(row.isFolder, row.symbolPath);
-      const item = this.createItem(row.name, row.isFolder, itemType, row.filePath, row.line, row.column, row.symbolPath);
+      const item = this.createItem(row.name, row.isFolder, itemType, row.filePath, row.line, row.column, row.symbolPath, row.description);
       item.parentId = parentId;
-      this.appendNode(item);
+      this.nodeTable[item.itemId] = item;
+      if (item.itemType === 'virtualFolder' && !this.nodes[item.itemId]) {
+        this.nodes[item.itemId] = [];
+      }
+      items.push(item);
       if (itemType === 'virtualFolder' && row.children && row.children.length > 0) {
-        this.appendItems(item.itemId, row.children);
+        this.nodes[item.itemId] = this.buildItems(item.itemId, row.children);
       }
     }
+    return items;
   }
 
   private resolveItemType(isFolder: boolean, symbolPath?: string): TreeItemType {
@@ -503,6 +593,25 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     }
 
     return 'file';
+  }
+
+  private serializeItem(item: MyTreeItem): SerializedTreeNode {
+    let children: SerializedTreeNode[] = [];
+    if (item.itemType === 'virtualFolder') {
+      children = this.prepareSerializableNode(item.itemId);
+    }
+
+    return {
+      name: item.label,
+      description: item.note,
+      isFolder: item.isFolder,
+      itemType: item.itemType,
+      filePath: item.filePath,
+      line: item.line,
+      column: item.column,
+      symbolPath: item.symbolPath,
+      children
+    };
   }
 
   private async loadLinkedFolderChildren(item: MyTreeItem): Promise<MyTreeItem[]> {
@@ -538,6 +647,7 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
             dirent.isDirectory(),
             dirent.isDirectory() ? 'linkedFolder' : 'file',
             childPath,
+            undefined,
             undefined,
             undefined,
             undefined,

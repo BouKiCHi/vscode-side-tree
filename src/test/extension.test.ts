@@ -89,6 +89,22 @@ suite('Extension Test Suite', () => {
     assert.ok(childIndex < parentIndex);
   });
 
+  test('moveItemsTop preserves relative order of multiple selected items', async () => {
+    const mockManager = new MockSideTreeDataManager();
+    const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+    const rootLabel = localize('sideTree.rootFolder.label', 'SideTree Folder');
+
+    await provider.addItemWithFolderId(0, 'A.ts', false, 'A.ts');
+    const itemB = await provider.addItemWithFolderId(0, 'B.ts', false, 'B.ts');
+    const itemC = await provider.addItemWithFolderId(0, 'C.ts', false, 'C.ts');
+    await provider.addItemWithFolderId(0, 'D.ts', false, 'D.ts');
+
+    provider.moveItemsTop([itemB.itemId, itemC.itemId]);
+
+    const order = provider.prepareSerializableNode(0).map((x) => x.name);
+    assert.deepStrictEqual(order, [rootLabel, 'B.ts', 'C.ts', 'A.ts', 'D.ts']);
+  });
+
   test('convertToRelative converts only workspace-contained paths', () => {
     const workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!workspacePath) {
@@ -182,5 +198,47 @@ suite('Extension Test Suite', () => {
     const target = rootRows.find((x) => x.name === 'Target');
     assert.ok(target);
     assert.deepStrictEqual(target?.children.map((x) => x.name), ['Imported File.ts']);
+  });
+
+  test('importItemsAfter inserts imported data after the target item', async () => {
+    const mockManager = new MockSideTreeDataManager();
+    const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+    const rootLabel = localize('sideTree.rootFolder.label', 'SideTree Folder');
+
+    await provider.addItemWithFolderId(0, 'before.ts', false, 'before.ts');
+    const target = await provider.addItemWithFolderId(0, 'target.ts', false, 'target.ts');
+    await provider.addItemWithFolderId(0, 'after.ts', false, 'after.ts');
+
+    await provider.importItemsAfter(target.itemId, [
+      {
+        name: 'imported.ts',
+        isFolder: false,
+        itemType: 'file',
+        filePath: 'imported.ts',
+        children: []
+      }
+    ]);
+
+    const rootRows = provider.prepareSerializableNode(0);
+    assert.deepStrictEqual(rootRows.map((x) => x.name), [rootLabel, 'before.ts', 'target.ts', 'imported.ts', 'after.ts']);
+  });
+
+  test('item description is shown on tree items and preserved in serialization', async () => {
+    const mockManager = new MockSideTreeDataManager();
+    const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+
+    const item = await provider.addItemWithFolderId(0, 'memo.ts', false, 'memo.ts', undefined, undefined, undefined, 'important note');
+    assert.strictEqual(item.description, 'important note');
+
+    provider.changeDescription(item.itemId, 'updated note');
+    assert.strictEqual(item.description, 'updated note');
+
+    const serialized = provider.prepareSerializableNode(0);
+    const row = serialized.find((x) => x.name === 'memo.ts');
+    assert.strictEqual(row?.description, 'updated note');
+
+    await provider.replaceAll(serialized);
+    const reloaded = provider.prepareSerializableNode(0).find((x) => x.name === 'memo.ts');
+    assert.strictEqual(reloaded?.description, 'updated note');
   });
 });

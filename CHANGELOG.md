@@ -1,5 +1,10 @@
 # Change Log
 
+## 0.2.1
+- Added item description support with context-menu editing and inline display in the tree view.
+- Added context-menu commands to open selected items, move selected items to the top while preserving order, and copy selected items as JSON.
+- Added clipboard JSON import into the selected location in the tree, with safeguards against importing into linked-folder transient children.
+
 ## 0.2.0
 - Added `linkedFolder` support so directories added from Explorer can be expanded recursively inside SideTree.
 - Added context menu commands to open items to the side and reveal them in Explorer.

@@ -154,6 +154,49 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // クリップボードのJSONを選択位置へインポート
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.importJsonFromClipboard', async (menuItem?: MyTreeItem) => {
+      const raw = await vscode.env.clipboard.readText();
+      if (!raw.trim()) {
+        return;
+      }
+
+      try {
+        const parsed: unknown = JSON.parse(raw);
+        const data = dataManager.parseSerializedTreeData(parsed);
+        if (!data) {
+          vscode.window.showErrorMessage(
+            localize('sideTree.message.invalidJsonImport', 'The selected JSON file is not a valid SideTree export.')
+          );
+          return;
+        }
+
+        const targetItem = menuItem ?? getActiveSelection()[0];
+        if (!targetItem) {
+          await treeDataProvider.importItems(0, data);
+        } else if (targetItem.isTransient) {
+          vscode.window.showErrorMessage(
+            localize('sideTree.message.cannotImportIntoLinkedFolderChildren', 'Cannot import JSON into linked folder children.')
+          );
+          return;
+        } else if (targetItem.itemType === 'virtualFolder') {
+          await treeDataProvider.importItems(targetItem.itemId, data);
+        } else {
+          await treeDataProvider.importItemsAfter(targetItem.itemId, data);
+        }
+
+        vscode.window.showInformationMessage(
+          localize('sideTree.message.importedJsonFromClipboard', 'Imported SideTree JSON from clipboard')
+        );
+      } catch {
+        vscode.window.showErrorMessage(
+          localize('sideTree.message.invalidJsonImport', 'The selected JSON file is not a valid SideTree export.')
+        );
+      }
+    })
+  );
+
   // JSONファイルからデータをインポート
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.importJsonFile', async () => {
@@ -426,6 +469,31 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // ツリー全体をJSONでクリップボードへコピー
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.copyJson', async (menuItem: MyTreeItem) => {
+      const list = getSelectedItems(menuItem, getActiveSelection()).filter((item) => !item.isTransient);
+      const data = treeDataProvider.prepareSerializableItems(list);
+      await vscode.env.clipboard.writeText(JSON.stringify(data, null, 2));
+      vscode.window.showInformationMessage(
+        localize('sideTree.message.copiedJsonToClipboard', 'Copied selected SideTree items as JSON to clipboard')
+      );
+    })
+  );
+
+  // アイテムを開く
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.openItem', async (menuItem: MyTreeItem) => {
+      const list = getSelectedItems(menuItem, getActiveSelection());
+      for (const item of list) {
+        if (!item.filePath || item.isFolder) {
+          continue;
+        }
+        await openDocument(item.filePath, item.line, item.column);
+      }
+    })
+  );
+
   // アイテムを右側で開く
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.openItemToSide', async (menuItem: MyTreeItem) => {
@@ -484,6 +552,37 @@ export function activate(context: vscode.ExtensionContext) {
         treeDataProvider.changeLabel(targetItem.itemId, newLabel);
         // vscode.window.showInformationMessage(`Change Label from "${oldLabel}" to "${newLabel}"`);
       }
+    })
+  );
+
+  // アイテム説明の編集
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.editDescription', async (menuItem: MyTreeItem) => {
+      const selectedItems = getSelectedItems(menuItem, getActiveSelection()).filter((item) => !item.isTransient);
+      if (!selectedItems.length) {
+        return;
+      }
+
+      const targetItem = selectedItems[0];
+      const description = await vscode.window.showInputBox({
+        prompt: localize('sideTree.prompt.editDescription', 'Enter description for "{0}" (empty to clear)', targetItem.label),
+        placeHolder: localize('sideTree.placeholder.description', 'Description'),
+        value: targetItem.note ?? ''
+      });
+
+      if (description === undefined) {
+        return;
+      }
+
+      treeDataProvider.changeDescription(targetItem.itemId, description.trim() ? description : undefined);
+    })
+  );
+
+  // 上に移動
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.moveItemTop', async (menuItem: MyTreeItem) => {
+      const list = getSelectedItems(menuItem, getActiveSelection()).filter((item) => !item.isTransient);
+      treeDataProvider.moveItemsTop(list.map((item) => item.itemId));
     })
   );
 

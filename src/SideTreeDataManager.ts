@@ -159,6 +159,10 @@ export class SideTreeDataManager {
       return false;
     }
 
+    if (!(typeof candidate.description === 'undefined' || typeof candidate.description === 'string')) {
+      return false;
+    }
+
     if (typeof candidate.isFolder !== 'boolean') {
       return false;
     }
