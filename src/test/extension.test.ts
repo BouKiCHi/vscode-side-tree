@@ -6,7 +6,9 @@ import * as path from 'path';
 import { MyTreeDataProvider, SerializedTreeNode } from '../MyTreeDataProvider';
 import { SideTreeDataManager } from '../SideTreeDataManager';
 import { convertToRelative } from '../convertToRelative';
+import { getExplorerSelection } from '../extension';
 import { localize } from '../localize';
+import { parseCsvImport } from '../parseCsvImport';
 
 class MockSideTreeDataManager {
   public lastSavedJson: string | null = null;
@@ -240,5 +242,58 @@ suite('Extension Test Suite', () => {
     await provider.replaceAll(serialized);
     const reloaded = provider.prepareSerializableNode(0).find((x) => x.name === 'memo.ts');
     assert.strictEqual(reloaded?.description, 'updated note');
+  });
+
+  test('getExplorerSelection prefers multi-select resources and filters duplicates', () => {
+    const first = vscode.Uri.file(path.join('/tmp', 'first.ts'));
+    const second = vscode.Uri.file(path.join('/tmp', 'second.ts'));
+
+    const selected = getExplorerSelection(first, [first, second, first]);
+
+    assert.deepStrictEqual(selected.map((uri) => uri.fsPath), [first.fsPath, second.fsPath]);
+  });
+
+  test('getExplorerSelection falls back to single resource and ignores non-file uris', () => {
+    const single = vscode.Uri.file(path.join('/tmp', 'single.ts'));
+    const ignored = vscode.Uri.parse('untitled:note');
+
+    assert.deepStrictEqual(getExplorerSelection(single).map((uri) => uri.fsPath), [single.fsPath]);
+    assert.deepStrictEqual(getExplorerSelection(single, [ignored]).map((uri) => uri.fsPath), []);
+  });
+
+  test('parseCsvImport reads folder path, relative file path, label, and description', () => {
+    const rows = parseCsvImport([
+      'フォルダ,ファイルパス,名前,説明',
+      'A/B,src/app.ts,App entry,main module',
+      ',src/lib/util.ts,,helper'
+    ].join('\n'));
+
+    assert.deepStrictEqual(rows, [
+      {
+        folderPath: 'A/B',
+        filePath: 'src/app.ts',
+        name: 'App entry',
+        description: 'main module'
+      },
+      {
+        folderPath: undefined,
+        filePath: 'src/lib/util.ts',
+        name: 'util.ts',
+        description: 'helper'
+      }
+    ]);
+  });
+
+  test('parseCsvImport supports quoted commas and escaped quotes', () => {
+    const rows = parseCsvImport('"A/B","src/data.ts","label,with,comma","note ""quoted"""');
+
+    assert.deepStrictEqual(rows, [
+      {
+        folderPath: 'A/B',
+        filePath: 'src/data.ts',
+        name: 'label,with,comma',
+        description: 'note "quoted"'
+      }
+    ]);
   });
 });

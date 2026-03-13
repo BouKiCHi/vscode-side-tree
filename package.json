@@ -2,7 +2,7 @@
   "name": "side-tree",
   "displayName": "%sideTree.displayName%",
   "description": "%sideTree.description%",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "publisher": "boukichi",
   "engines": {
     "vscode": "^1.100.0"
@@ -119,6 +119,15 @@
         "title": "%sideTree.command.importJsonFile.title%"
       },
       {
+        "command": "sideTreeView.importCsvFile",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.importCsvFile.title%",
+        "icon": {
+          "dark": "media/place_item_dark.svg",
+          "light": "media/place_item.svg"
+        }
+      },
+      {
         "command": "sideTreeView.importJsonFromClipboard",
         "category": "%sideTree.command.category%",
         "title": "%sideTree.command.importJsonFromClipboard.title%"
@@ -147,6 +156,11 @@
         "command": "sideTreeView.copyPath",
         "category": "%sideTree.command.category%",
         "title": "%sideTree.command.copyPath.title%"
+      },
+      {
+        "command": "sideTreeView.copyRelativePath",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.copyRelativePath.title%"
       },
       {
         "command": "sideTreeView.copyJson",
@@ -311,9 +325,14 @@
           "group": "6_copypath@1"
         },
         {
-          "command": "sideTreeView.copyJson",
+          "command": "sideTreeView.copyRelativePath",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "6_copypath@2"
+        },
+        {
+          "command": "sideTreeView.copyJson",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "6_copypath@3"
         },
         {
           "command": "sideTreeView.moveItemParent",
@@ -373,14 +392,19 @@
           "group": "other@3"
         },
         {
-          "command": "sideTreeView.replaceWithJsonFile",
+          "command": "sideTreeView.importCsvFile",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "other@4"
         },
         {
-          "command": "sideTreeView.saveAs",
+          "command": "sideTreeView.replaceWithJsonFile",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "other@5"
+        },
+        {
+          "command": "sideTreeView.saveAs",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "other@6"
         }
       ],
       "editor/title/context": [

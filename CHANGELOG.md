@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.2.2
+- Added Explorer multi-select support so multiple selected files can be added to SideTree in one action.
+- Added a view-title CSV import action for appending items into the selected location using `Folder,FilePath,Name,Description` rows.
+- CSV import now creates nested virtual folders from the `Folder` column and falls back to the file name when `Name` is empty.
+- Added a `Copy Relative Path` context-menu command under `Copy Path`.
+
+
 ## 0.2.1
 - Added item description support with context-menu editing and inline display in the tree view.
 - Added context-menu commands to open selected items, move selected items to the top while preserving order, and copy selected items as JSON.

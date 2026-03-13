@@ -7,6 +7,21 @@ import { MyDnDController } from './MyDnDController';
 import { convertToRelative } from './convertToRelative';
 import { SideTreeDataManager } from './SideTreeDataManager';
 import { localize } from './localize';
+import { parseCsvImport } from './parseCsvImport';
+
+export function getExplorerSelection(resource?: vscode.Uri, resources?: readonly vscode.Uri[]): vscode.Uri[] {
+  const candidates = resources?.length ? resources : (resource ? [resource] : []);
+  const uniqueResources = new Map<string, vscode.Uri>();
+
+  for (const candidate of candidates) {
+    if (candidate.scheme !== 'file') {
+      continue;
+    }
+    uniqueResources.set(candidate.toString(), candidate);
+  }
+
+  return Array.from(uniqueResources.values());
+}
 
 // 拡張機能の初期化とコマンド登録を行う
 export function activate(context: vscode.ExtensionContext) {
@@ -31,6 +46,39 @@ export function activate(context: vscode.ExtensionContext) {
   };
   const getActiveFolderId = (): number => {
     return getFolderId(getActiveSelection());
+  };
+  const getFolderChildren = async (folderId: number): Promise<MyTreeItem[]> => {
+    if (folderId === 0) {
+      return treeDataProvider.getChildren();
+    }
+
+    const folderItem = treeDataProvider.getItemByItemId(folderId);
+    if (!folderItem) {
+      return [];
+    }
+
+    return treeDataProvider.getChildren(folderItem);
+  };
+  const ensureVirtualFolderPath = async (baseFolderId: number, folderPath?: string): Promise<number> => {
+    const segments = folderPath
+      ?.split(/[\\/]/)
+      .map((segment) => segment.trim())
+      .filter((segment) => segment.length > 0) ?? [];
+
+    let currentFolderId = baseFolderId;
+    for (const segment of segments) {
+      const children = await getFolderChildren(currentFolderId);
+      const existing = children.find((item) => item.itemType === 'virtualFolder' && item.label === segment);
+      if (existing) {
+        currentFolderId = existing.itemId;
+        continue;
+      }
+
+      const created = await treeDataProvider.addItemWithFolderId(currentFolderId, segment, true);
+      currentFolderId = created.itemId;
+    }
+
+    return currentFolderId;
   };
 
   // クリック時の処理
@@ -250,6 +298,62 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // CSVファイルから項目をインポート
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.importCsvFile', async () => {
+      const defaultUri = vscode.workspace.workspaceFolders?.[0]?.uri;
+      const uri = await vscode.window.showOpenDialog({
+        defaultUri,
+        canSelectMany: false,
+        openLabel: localize('sideTree.openDialog.importCsv', 'Import CSV'),
+        filters: {
+          [localize('sideTree.filter.csvFiles', 'CSV Files')]: ['csv'],
+          [localize('sideTree.filter.allFiles', 'All Files')]: ['*']
+        }
+      });
+
+      if (!uri?.length) {
+        return;
+      }
+
+      const answer = await vscode.window.showInformationMessage(
+        localize('sideTree.confirm.importFromCsvFile', 'Import items from CSV file into the selected folder?'),
+        { modal: true },
+        localize('sideTree.answer.yes', 'Yes'),
+        localize('sideTree.answer.no', 'No')
+      );
+
+      if (answer !== localize('sideTree.answer.yes', 'Yes')) {
+        return;
+      }
+
+      try {
+        const raw = await fs.promises.readFile(uri[0].fsPath, 'utf8');
+        const rows = parseCsvImport(raw);
+        if (!rows.length) {
+          vscode.window.showErrorMessage(
+            localize('sideTree.message.invalidCsvImport', 'The selected CSV file does not contain any importable items.')
+          );
+          return;
+        }
+
+        const folderId = getActiveFolderId();
+        for (const row of rows) {
+          const targetFolderId = await ensureVirtualFolderPath(folderId, row.folderPath);
+          await treeDataProvider.addItemWithFolderId(targetFolderId, row.name, false, row.filePath, undefined, undefined, undefined, row.description);
+        }
+
+        vscode.window.showInformationMessage(
+          localize('sideTree.message.importedFromCsvFile', 'Imported SideTree items from {0}', uri[0].fsPath)
+        );
+      } catch {
+        vscode.window.showErrorMessage(
+          localize('sideTree.message.failedImportCsvFile', 'Failed to import CSV file: {0}', uri[0].fsPath)
+        );
+      }
+    })
+  );
+
   // JSONファイルで現在データを置き換え
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.replaceWithJsonFile', async () => {
@@ -317,6 +421,31 @@ export function activate(context: vscode.ExtensionContext) {
     const folderPath = treeDataProvider.getItemPath(folderId);
     vscode.window.showInformationMessage(
       localize('sideTree.message.addedToFolder', 'Added {0} to {1}', fileName, folderPath)
+    );
+  }
+
+  async function appendFiles(resources: readonly vscode.Uri[]) {
+    if (!resources.length) {
+      return;
+    }
+
+    const folderId = getActiveFolderId();
+    const addedNames: string[] = [];
+    for (const resource of resources) {
+      const filePath = resource.fsPath;
+      const fileName = path.basename(filePath);
+      const stat = await fs.promises.stat(filePath);
+      if (stat.isDirectory()) {
+        await treeDataProvider.addLinkedFolderWithFolderId(folderId, fileName, filePath);
+      } else {
+        await treeDataProvider.addItemWithFolderId(folderId, fileName, false, filePath);
+      }
+      addedNames.push(fileName);
+    }
+
+    const folderPath = treeDataProvider.getItemPath(folderId);
+    vscode.window.showInformationMessage(
+      localize('sideTree.message.addedToFolder', 'Added {0} to {1}', addedNames.join(', '), folderPath)
     );
   }
 
@@ -428,10 +557,16 @@ export function activate(context: vscode.ExtensionContext) {
 
   // エクスプローラーからアイテム追加コマンドの登録
   context.subscriptions.push(
-    vscode.commands.registerCommand('sideTreeView.addItemFromExplorer', async (resource: vscode.Uri) => {
-      if (resource && resource.scheme === 'file') {
-        await appendFile(resource);
+    vscode.commands.registerCommand('sideTreeView.addItemFromExplorer', async (resource?: vscode.Uri, resources?: readonly vscode.Uri[]) => {
+      const selection = getExplorerSelection(resource, resources);
+      if (!selection.length) {
+        return;
       }
+      if (selection.length === 1) {
+        await appendFile(selection[0]);
+        return;
+      }
+      await appendFiles(selection);
     })
   );
 
@@ -465,6 +600,17 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.commands.registerCommand('sideTreeView.copyPath', async (menuItem: MyTreeItem) => {
       const list = getSelectedItems(menuItem, getActiveSelection());
       const paths = list.filter(x => x.filePath).map(x => x.filePath);
+      await vscode.env.clipboard.writeText(paths.join('\n'));
+    })
+  );
+
+  // 相対パスのコピーコマンドの機能
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.copyRelativePath', async (menuItem: MyTreeItem) => {
+      const list = getSelectedItems(menuItem, getActiveSelection());
+      const paths = list
+        .filter((item) => item.filePath)
+        .map((item) => convertToRelative(item.filePath!));
       await vscode.env.clipboard.writeText(paths.join('\n'));
     })
   );
