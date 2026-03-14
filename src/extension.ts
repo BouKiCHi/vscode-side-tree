@@ -836,6 +836,33 @@ export function activate(context: vscode.ExtensionContext) {
       }
     })
   );
+
+  // CSVファイルを保存ダイアログで保存する
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.saveAsCsv', async () => {
+      if (!vscode.workspace.workspaceFolders) {
+        return;
+      }
+
+      const defaultUri = vscode.Uri.file(dataManager.getJsonFilename().replace(/\.json$/i, '.csv'));
+
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri,
+        filters: {
+          [localize('sideTree.filter.csvFiles', 'CSV Files')]: ['csv'],
+          [localize('sideTree.filter.allFiles', 'All Files')]: ['*']
+        }
+      });
+
+      if (uri) {
+        const csv = treeDataProvider.prepareCsvExport();
+        await fs.promises.writeFile(uri.fsPath, csv, 'utf8');
+        vscode.window.showInformationMessage(
+          localize('sideTree.message.savedCsvToFile', 'SideTree CSV saved to {0}', uri.fsPath)
+        );
+      }
+    })
+  );
 }
 
 // ファイルを開き指定位置へ移動する

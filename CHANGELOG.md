@@ -1,5 +1,9 @@
 # Change Log
 
+## 0.2.3
+- Added `Save as (export CSV)` so the current SideTree can be saved as `Folder,FilePath,Name,Description`.
+- CSV export flattens virtual folders into the `Folder` column and skips linked-folder items that cannot be recreated by CSV import.
+
 ## 0.2.2
 - Added Explorer multi-select support so multiple selected files can be added to SideTree in one action.
 - Added a view-title CSV import action for appending items into the selected location using `Folder,FilePath,Name,Description` rows.

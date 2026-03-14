@@ -19,6 +19,13 @@ export interface SerializedTreeNode {
   children: SerializedTreeNode[];
 }
 
+export interface CsvExportRow {
+  folderPath?: string;
+  filePath: string;
+  name: string;
+  description?: string;
+}
+
 // ツリーデータプロバイダ
 export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
@@ -499,6 +506,24 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     return data;
   }
 
+  prepareCsvExport(): string {
+    const rows = this.prepareCsvRows(0);
+    const lines = [
+      ['Folder', 'FilePath', 'Name', 'Description'].map((value) => this.escapeCsvField(value)).join(',')
+    ];
+
+    for (const row of rows) {
+      lines.push([
+        row.folderPath ?? '',
+        row.filePath,
+        row.name,
+        row.description ?? ''
+      ].map((value) => this.escapeCsvField(value)).join(','));
+    }
+
+    return lines.join('\n');
+  }
+
   // データのリロード
   async reloadData() {
     await this.load();
@@ -612,6 +637,51 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
       symbolPath: item.symbolPath,
       children
     };
+  }
+
+  private prepareCsvRows(itemId: number, folderSegments: string[] = []): CsvExportRow[] {
+    const rows: CsvExportRow[] = [];
+    const nodeList = this.nodes[itemId] ?? [];
+
+    for (let index = 0; index < nodeList.length; index++) {
+      const item = nodeList[index];
+      if (item.isTransient || item.itemType === 'linkedFolder') {
+        continue;
+      }
+
+      if (item.itemType === 'virtualFolder') {
+        const nextSegments = this.isDefaultRootFolder(itemId, index, item)
+          ? folderSegments
+          : [...folderSegments, item.label];
+        rows.push(...this.prepareCsvRows(item.itemId, nextSegments));
+        continue;
+      }
+
+      if (!item.filePath) {
+        continue;
+      }
+
+      rows.push({
+        folderPath: folderSegments.length ? folderSegments.join('/') : undefined,
+        filePath: item.filePath,
+        name: item.label,
+        description: item.note
+      });
+    }
+
+    return rows;
+  }
+
+  private isDefaultRootFolder(parentId: number, index: number, item: MyTreeItem): boolean {
+    return parentId === 0 && index === 0 && item.itemType === 'virtualFolder' && !item.filePath;
+  }
+
+  private escapeCsvField(value: string): string {
+    if (!/[",\n\r]/.test(value)) {
+      return value;
+    }
+
+    return `"${value.replace(/"/g, '""')}"`;
   }
 
   private async loadLinkedFolderChildren(item: MyTreeItem): Promise<MyTreeItem[]> {

@@ -2,7 +2,7 @@
   "name": "side-tree",
   "displayName": "%sideTree.displayName%",
   "description": "%sideTree.description%",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "publisher": "boukichi",
   "engines": {
     "vscode": "^1.100.0"
@@ -260,6 +260,11 @@
         "command": "sideTreeView.saveAs",
         "category": "%sideTree.command.category%",
         "title": "%sideTree.command.saveAs.title%"
+      },
+      {
+        "command": "sideTreeView.saveAsCsv",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.saveAsCsv.title%"
       }
     ],
     "menus": {
@@ -405,6 +410,11 @@
           "command": "sideTreeView.saveAs",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "other@6"
+        },
+        {
+          "command": "sideTreeView.saveAsCsv",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "other@7"
         }
       ],
       "editor/title/context": [

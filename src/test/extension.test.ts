@@ -296,4 +296,31 @@ suite('Extension Test Suite', () => {
       }
     ]);
   });
+
+  test('prepareCsvExport flattens virtual folders and skips linked folders', async () => {
+    const tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'sidetree-csv-'));
+
+    try {
+      const mockManager = new MockSideTreeDataManager();
+      const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+
+      const rootFolder = provider.getItemByItemId(1);
+      assert.ok(rootFolder);
+
+      const nestedFolder = await provider.addItemWithFolderId(rootFolder!.itemId, 'Docs', true);
+      await provider.addItemWithFolderId(rootFolder!.itemId, 'top.ts', false, 'src/top.ts', undefined, undefined, undefined, 'top note');
+      await provider.addItemWithFolderId(nestedFolder.itemId, 'feature,name.ts', false, 'src/feature.ts', undefined, undefined, undefined, 'memo "quoted"');
+      await provider.addLinkedFolderWithFolderId(rootFolder!.itemId, 'linked', tempRoot);
+
+      const csv = provider.prepareCsvExport();
+
+      assert.strictEqual(csv, [
+        'Folder,FilePath,Name,Description',
+        ',src/top.ts,top.ts,top note',
+        'Docs,src/feature.ts,"feature,name.ts","memo ""quoted"""'
+      ].join('\n'));
+    } finally {
+      await fs.promises.rm(tempRoot, { recursive: true, force: true });
+    }
+  });
 });
