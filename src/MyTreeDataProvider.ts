@@ -10,6 +10,7 @@ import { localize } from './localize';
 export interface SerializedTreeNode {
   name: string;
   description?: string;
+  checked?: boolean;
   isFolder: boolean;
   itemType?: TreeItemType;
   filePath?: string;
@@ -41,13 +42,12 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
   // 一次元構造の配列
   private nodeTable: { [itemId: number]: MyTreeItem; } = {};
+  private hideCheckedMode: boolean = false;
+  private showCheckboxes: boolean = false;
 
   // コンストラクタ
   constructor(private dataManager: SideTreeDataManager) {
-    // ルートノード
     this.nodes[0] = [];
-    const item = this.createItem(localize('sideTree.rootFolder.label', 'SideTree Folder'), true, 'virtualFolder');
-    this.appendNode(item);
     this.load();
   }
 
@@ -67,6 +67,9 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     const items: MyTreeQuickPickItem[] = [];
     for (const key in this.nodeTable) {
       const item = this.nodeTable[key];
+      if (this.hideCheckedMode && item.checked) {
+        continue;
+      }
       const itemPath = this.getItemPath(item.itemId);
       items.push({ itemId: item.itemId, label: this.getMenuLabel(item), detail: itemPath });
     }
@@ -113,6 +116,7 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
     this.nodes[item.parentId].push(item);
     this.nodeTable[item.itemId] = item;
+    this.refreshCheckPresentation(item);
   }
 
   // アイテム作成
@@ -125,12 +129,15 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     column?: number,
     symbolPath?: string,
     description?: string,
-    isTransient: boolean = false
+    isTransient: boolean = false,
+    checked: boolean = false
   ): MyTreeItem {
     if (filePath) {
       filePath = convertToRelative(filePath);
     }
-    return new MyTreeItem(this.itemIdCount++, label, isFolder, itemType, this.fileCommandId, this.folderCommandId, filePath, line, column, symbolPath, description, isTransient);
+    const item = new MyTreeItem(this.itemIdCount++, label, isFolder, itemType, this.fileCommandId, this.folderCommandId, filePath, line, column, symbolPath, description, isTransient, checked);
+    this.refreshCheckPresentation(item);
+    return item;
   }
 
 
@@ -143,16 +150,16 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
   async getChildren(element?: MyTreeItem): Promise<MyTreeItem[]> {
     if (!element) {
       // ルートノードを返す
-      return this.nodes[0];
+      return this.filterVisibleItems(this.nodes[0] ?? []);
     }
 
     if (element.itemType === 'linkedFolder') {
-      return this.loadLinkedFolderChildren(element);
+      return this.filterVisibleItems(await this.loadLinkedFolderChildren(element));
     }
 
     if (this.nodes[element.itemId]) {
       // 子ノードを返す
-      return this.nodes[element.itemId];
+      return this.filterVisibleItems(this.nodes[element.itemId]);
     }
     return [];
   }
@@ -182,6 +189,68 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     const noteTooltip = newDescription ? `${pathTooltip || lineSuffix ? '\n' : ''}${newDescription}` : '';
     item.tooltip = `${pathTooltip}${lineSuffix}${noteTooltip}`;
     this.update();
+  }
+
+  isHideCheckedModeEnabled(): boolean {
+    return this.hideCheckedMode;
+  }
+
+  async setHideCheckedMode(enabled: boolean) {
+    if (this.hideCheckedMode === enabled) {
+      return;
+    }
+
+    this.hideCheckedMode = enabled;
+    this.refreshAllCheckPresentation();
+    await this.update();
+  }
+
+  isCheckboxesVisible(): boolean {
+    return this.showCheckboxes;
+  }
+
+  async setShowCheckboxes(enabled: boolean) {
+    if (this.showCheckboxes === enabled) {
+      return;
+    }
+
+    this.showCheckboxes = enabled;
+    this.refreshAllCheckPresentation();
+    await this.update();
+  }
+
+  async setItemsChecked(itemIds: number[], checked: boolean) {
+    const candidates = itemIds
+      .map((itemId) => this.getItemByItemId(itemId))
+      .filter((item): item is MyTreeItem => !!item && !item.isTransient);
+    if (!candidates.length) {
+      return;
+    }
+
+    let changed = false;
+    for (const item of candidates) {
+      if (item.checked === checked) {
+        continue;
+      }
+      item.checked = checked;
+      this.refreshCheckPresentation(item);
+      changed = true;
+    }
+
+    if (changed) {
+      await this.update();
+    }
+  }
+
+  async setItemChecked(itemId: number, checked: boolean) {
+    const item = this.getItemByItemId(itemId);
+    if (!item || item.isTransient || item.checked === checked) {
+      return;
+    }
+
+    item.checked = checked;
+    this.refreshCheckPresentation(item);
+    await this.update();
   }
 
   // 親を得る
@@ -508,6 +577,37 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
   prepareCsvExport(): string {
     const rows = this.prepareCsvRows(0);
+    return this.buildCsv(rows);
+  }
+
+  prepareCsvExportForItems(items: readonly MyTreeItem[]): string {
+    const rows: CsvExportRow[] = [];
+    for (const item of items) {
+      if (item.isTransient || item.itemType === 'linkedFolder') {
+        continue;
+      }
+
+      if (item.itemType === 'virtualFolder') {
+        rows.push(...this.prepareCsvRows(item.itemId, [item.label]));
+        continue;
+      }
+
+      if (!item.filePath) {
+        continue;
+      }
+
+      rows.push({
+        folderPath: undefined,
+        filePath: item.filePath,
+        name: item.label,
+        description: item.note
+      });
+    }
+
+    return this.buildCsv(rows);
+  }
+
+  private buildCsv(rows: CsvExportRow[]): string {
     const lines = [
       ['Folder', 'FilePath', 'Name', 'Description'].map((value) => this.escapeCsvField(value)).join(',')
     ];
@@ -588,6 +688,9 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
       this.nodes[parentId] = [];
     }
     this.nodes[parentId].push(...items);
+    for (const item of items) {
+      this.refreshCheckPresentation(item);
+    }
   }
 
   private buildItems(parentId: number, data: SerializedTreeNode[]): MyTreeItem[] {
@@ -595,6 +698,8 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     for (const row of data) {
       const itemType = row.itemType ?? this.resolveItemType(row.isFolder, row.symbolPath);
       const item = this.createItem(row.name, row.isFolder, itemType, row.filePath, row.line, row.column, row.symbolPath, row.description);
+      item.checked = !!row.checked;
+      this.refreshCheckPresentation(item);
       item.parentId = parentId;
       this.nodeTable[item.itemId] = item;
       if (item.itemType === 'virtualFolder' && !this.nodes[item.itemId]) {
@@ -629,6 +734,7 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     return {
       name: item.label,
       description: item.note,
+      checked: item.checked || undefined,
       isFolder: item.isFolder,
       itemType: item.itemType,
       filePath: item.filePath,
@@ -650,9 +756,7 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
       }
 
       if (item.itemType === 'virtualFolder') {
-        const nextSegments = this.isDefaultRootFolder(itemId, index, item)
-          ? folderSegments
-          : [...folderSegments, item.label];
+        const nextSegments = [...folderSegments, item.label];
         rows.push(...this.prepareCsvRows(item.itemId, nextSegments));
         continue;
       }
@@ -670,10 +774,6 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
     }
 
     return rows;
-  }
-
-  private isDefaultRootFolder(parentId: number, index: number, item: MyTreeItem): boolean {
-    return parentId === 0 && index === 0 && item.itemType === 'virtualFolder' && !item.filePath;
   }
 
   private escapeCsvField(value: string): string {
@@ -721,7 +821,8 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
             undefined,
             undefined,
             undefined,
-            true
+            true,
+            false
           );
           child.parentId = item.itemId;
           return child;
@@ -750,5 +851,28 @@ export class MyTreeDataProvider implements vscode.TreeDataProvider<MyTreeItem> {
 
     const absolutePath = path.join(workspaceFolder.uri.fsPath, filePath);
     return vscode.Uri.file(absolutePath);
+  }
+
+  private filterVisibleItems(items: MyTreeItem[]): MyTreeItem[] {
+    if (!this.hideCheckedMode) {
+      return items;
+    }
+
+    return items.filter((item) => !item.checked);
+  }
+
+  private refreshCheckPresentation(item: MyTreeItem) {
+    if ((!this.showCheckboxes && !this.hideCheckedMode) || item.isTransient) {
+      item.checkboxState = undefined;
+      return;
+    }
+
+    item.checkboxState = item.checked ? vscode.TreeItemCheckboxState.Checked : vscode.TreeItemCheckboxState.Unchecked;
+  }
+
+  private refreshAllCheckPresentation() {
+    for (const key in this.nodeTable) {
+      this.refreshCheckPresentation(this.nodeTable[key]);
+    }
   }
 }

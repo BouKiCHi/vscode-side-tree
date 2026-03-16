@@ -19,7 +19,8 @@ export class MyTreeItem extends vscode.TreeItem {
     public readonly column?: number,
     public readonly symbolPath?: string,
     public note?: string,
-    public readonly isTransient: boolean = false
+    public readonly isTransient: boolean = false,
+    public checked: boolean = false
   ) {
     const collapsibleState: vscode.TreeItemCollapsibleState = isFolder ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None;
 
@@ -29,6 +30,7 @@ export class MyTreeItem extends vscode.TreeItem {
     const noteTooltip = note ? `${pathTooltip || lineSuffix ? '\n' : ''}${note}` : '';
     this.tooltip = `${pathTooltip}${lineSuffix}${noteTooltip}`;
     this.description = note;
+    this.checkboxState = checked ? vscode.TreeItemCheckboxState.Checked : vscode.TreeItemCheckboxState.Unchecked;
     // 仮想フォルダと実フォルダ参照でアイコンを分ける
     this.iconPath = this.getIconPath();
 

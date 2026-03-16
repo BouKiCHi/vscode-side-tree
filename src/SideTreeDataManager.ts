@@ -163,6 +163,10 @@ export class SideTreeDataManager {
       return false;
     }
 
+    if (!(typeof candidate.checked === 'undefined' || typeof candidate.checked === 'boolean')) {
+      return false;
+    }
+
     if (typeof candidate.isFolder !== 'boolean') {
       return false;
     }

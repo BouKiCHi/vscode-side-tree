@@ -41,6 +41,10 @@ export function activate(context: vscode.ExtensionContext) {
   // ツリービューの作成
   const treeView = vscode.window.createTreeView('sideTreeView', options);
   const treeViewInExplorer = vscode.window.createTreeView('sideTreeViewInExplorer', options);
+  const syncCheckContexts = async () => {
+    await vscode.commands.executeCommand('setContext', 'sideTree.hideCheckedModeEnabled', treeDataProvider.isHideCheckedModeEnabled());
+    await vscode.commands.executeCommand('setContext', 'sideTree.showCheckboxesEnabled', treeDataProvider.isCheckboxesVisible());
+  };
   const getActiveSelection = (): readonly MyTreeItem[] => {
     return treeView.selection.length > 0 ? treeView.selection : treeViewInExplorer.selection;
   };
@@ -80,6 +84,23 @@ export function activate(context: vscode.ExtensionContext) {
 
     return currentFolderId;
   };
+  const handleCheckboxChanges = async (items: readonly [MyTreeItem, vscode.TreeItemCheckboxState][]) => {
+    for (const [item, checkboxState] of items) {
+      await treeDataProvider.setItemChecked(item.itemId, checkboxState === vscode.TreeItemCheckboxState.Checked);
+    }
+  };
+
+  context.subscriptions.push(
+    treeView.onDidChangeCheckboxState(async (event) => {
+      await handleCheckboxChanges(event.items);
+    })
+  );
+  context.subscriptions.push(
+    treeViewInExplorer.onDidChangeCheckboxState(async (event) => {
+      await handleCheckboxChanges(event.items);
+    })
+  );
+  void syncCheckContexts();
 
   // クリック時の処理
   context.subscriptions.push(
@@ -245,6 +266,40 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // クリップボードのCSVを選択位置へインポート
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.importCsvFromClipboard', async (menuItem?: MyTreeItem) => {
+      const raw = await vscode.env.clipboard.readText();
+      if (!raw.trim()) {
+        return;
+      }
+
+      try {
+        const rows = parseCsvImport(raw);
+        if (!rows.length) {
+          vscode.window.showErrorMessage(
+            localize('sideTree.message.invalidCsvImport', 'The selected CSV file does not contain any importable items.')
+          );
+          return;
+        }
+
+        const folderId = menuItem ? getTargetFolderItemId(menuItem) : getActiveFolderId();
+        for (const row of rows) {
+          const targetFolderId = await ensureVirtualFolderPath(folderId, row.folderPath);
+          await treeDataProvider.addItemWithFolderId(targetFolderId, row.name, false, row.filePath, undefined, undefined, undefined, row.description);
+        }
+
+        vscode.window.showInformationMessage(
+          localize('sideTree.message.importedCsvFromClipboard', 'Imported SideTree CSV from clipboard')
+        );
+      } catch {
+        vscode.window.showErrorMessage(
+          localize('sideTree.message.invalidCsvImport', 'The selected CSV file does not contain any importable items.')
+        );
+      }
+    })
+  );
+
   // JSONファイルからデータをインポート
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.importJsonFile', async () => {
@@ -275,7 +330,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       try {
-        const raw = await fs.promises.readFile(uri[0].fsPath, 'utf8');
+        const raw = await readTextFile(uri[0]);
         const parsed: unknown = JSON.parse(raw);
         const data = dataManager.parseSerializedTreeData(parsed);
         if (!data) {
@@ -300,7 +355,7 @@ export function activate(context: vscode.ExtensionContext) {
 
   // CSVファイルから項目をインポート
   context.subscriptions.push(
-    vscode.commands.registerCommand('sideTreeView.importCsvFile', async () => {
+    vscode.commands.registerCommand('sideTreeView.importCsvFile', async (menuItem?: MyTreeItem) => {
       const defaultUri = vscode.workspace.workspaceFolders?.[0]?.uri;
       const uri = await vscode.window.showOpenDialog({
         defaultUri,
@@ -328,7 +383,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       try {
-        const raw = await fs.promises.readFile(uri[0].fsPath, 'utf8');
+        const raw = await readTextFile(uri[0]);
         const rows = parseCsvImport(raw);
         if (!rows.length) {
           vscode.window.showErrorMessage(
@@ -337,7 +392,7 @@ export function activate(context: vscode.ExtensionContext) {
           return;
         }
 
-        const folderId = getActiveFolderId();
+        const folderId = menuItem ? getTargetFolderItemId(menuItem) : getActiveFolderId();
         for (const row of rows) {
           const targetFolderId = await ensureVirtualFolderPath(folderId, row.folderPath);
           await treeDataProvider.addItemWithFolderId(targetFolderId, row.name, false, row.filePath, undefined, undefined, undefined, row.description);
@@ -384,7 +439,7 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       try {
-        const raw = await fs.promises.readFile(uri[0].fsPath, 'utf8');
+        const raw = await readTextFile(uri[0]);
         const parsed: unknown = JSON.parse(raw);
         const data = dataManager.parseSerializedTreeData(parsed);
         if (!data) {
@@ -627,6 +682,18 @@ export function activate(context: vscode.ExtensionContext) {
     })
   );
 
+  // 選択項目をCSVでクリップボードへコピー
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.copyCsv', async (menuItem: MyTreeItem) => {
+      const list = getSelectedItems(menuItem, getActiveSelection()).filter((item) => !item.isTransient);
+      const csv = treeDataProvider.prepareCsvExportForItems(list);
+      await vscode.env.clipboard.writeText(csv);
+      vscode.window.showInformationMessage(
+        localize('sideTree.message.copiedCsvToClipboard', 'Copied selected SideTree items as CSV to clipboard')
+      );
+    })
+  );
+
   // アイテムを開く
   context.subscriptions.push(
     vscode.commands.registerCommand('sideTreeView.openItem', async (menuItem: MyTreeItem) => {
@@ -721,6 +788,52 @@ export function activate(context: vscode.ExtensionContext) {
       }
 
       treeDataProvider.changeDescription(targetItem.itemId, description.trim() ? description : undefined);
+    })
+  );
+
+  // 項目をチェックする
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.checkItems', async (menuItem: MyTreeItem) => {
+      const list = getSelectedItems(menuItem, getActiveSelection()).filter((item) => !item.isTransient);
+      await treeDataProvider.setItemsChecked(list.map((item) => item.itemId), true);
+    })
+  );
+
+  // 項目のチェックをクリアする
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.clearCheckedItems', async (menuItem: MyTreeItem) => {
+      const list = getSelectedItems(menuItem, getActiveSelection()).filter((item) => !item.isTransient);
+      await treeDataProvider.setItemsChecked(list.map((item) => item.itemId), false);
+    })
+  );
+
+  // チェック済み非表示モード切り替え
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.toggleHideCheckedMode', async () => {
+      const enabled = !treeDataProvider.isHideCheckedModeEnabled();
+      await treeDataProvider.setHideCheckedMode(enabled);
+      await syncCheckContexts();
+      vscode.window.showInformationMessage(
+        localize(
+          enabled ? 'sideTree.message.hideCheckedModeEnabled' : 'sideTree.message.checkedFilterDisabled',
+          enabled ? 'Hide checked mode enabled' : 'Checked filter disabled'
+        )
+      );
+    })
+  );
+
+  // チェックボックス表示切り替え
+  context.subscriptions.push(
+    vscode.commands.registerCommand('sideTreeView.toggleCheckboxes', async () => {
+      const enabled = !treeDataProvider.isCheckboxesVisible();
+      await treeDataProvider.setShowCheckboxes(enabled);
+      await syncCheckContexts();
+      vscode.window.showInformationMessage(
+        localize(
+          enabled ? 'sideTree.message.showCheckboxesEnabled' : 'sideTree.message.showCheckboxesDisabled',
+          enabled ? 'Checkboxes shown' : 'Checkboxes hidden'
+        )
+      );
     })
   );
 
@@ -829,7 +942,7 @@ export function activate(context: vscode.ExtensionContext) {
 
       if (uri) {
         const data = treeDataProvider.prepareSerializableNode(0);
-        await fs.promises.writeFile(uri.fsPath, JSON.stringify(data, null, 2), 'utf8');
+        await writeTextFile(uri, JSON.stringify(data, null, 2));
         vscode.window.showInformationMessage(
           localize('sideTree.message.savedToFile', 'SideTree data saved to {0}', uri.fsPath)
         );
@@ -856,13 +969,22 @@ export function activate(context: vscode.ExtensionContext) {
 
       if (uri) {
         const csv = treeDataProvider.prepareCsvExport();
-        await fs.promises.writeFile(uri.fsPath, csv, 'utf8');
+        await writeTextFile(uri, csv);
         vscode.window.showInformationMessage(
           localize('sideTree.message.savedCsvToFile', 'SideTree CSV saved to {0}', uri.fsPath)
         );
       }
     })
   );
+}
+
+async function readTextFile(uri: vscode.Uri): Promise<string> {
+  const data = await vscode.workspace.fs.readFile(uri);
+  return Buffer.from(data).toString('utf8');
+}
+
+async function writeTextFile(uri: vscode.Uri, text: string): Promise<void> {
+  await vscode.workspace.fs.writeFile(uri, Buffer.from(text, 'utf8'));
 }
 
 // ファイルを開き指定位置へ移動する

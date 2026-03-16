@@ -1,5 +1,12 @@
 # Change Log
 
+## 0.2.4
+- Added CSV clipboard actions for appending into SideTree and copying selected items as CSV.
+- Added folder context-menu CSV import so CSV can be appended directly into the clicked virtual folder.
+- Added item checked-state support with optional checkbox display and a check mode that hides checked items.
+- Simplified the internal tree root so top-level items are stored directly under the actual root instead of a synthetic first folder.
+- Switched JSON/CSV import-export file access to VS Code `workspace.fs` so save/load works correctly in WSL scenarios.
+
 ## 0.2.3
 - Added `Save as (export CSV)` so the current SideTree can be saved as `Folder,FilePath,Name,Description`.
 - CSV export flattens virtual folders into the `Folder` column and skips linked-folder items that cannot be recreated by CSV import.

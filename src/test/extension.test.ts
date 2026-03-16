@@ -4,10 +4,10 @@ import * as os from 'os';
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { MyTreeDataProvider, SerializedTreeNode } from '../MyTreeDataProvider';
+import { MyTreeItem } from '../MyTreeItem';
 import { SideTreeDataManager } from '../SideTreeDataManager';
 import { convertToRelative } from '../convertToRelative';
-import { getExplorerSelection } from '../extension';
-import { localize } from '../localize';
+import { getExplorerSelection, getTargetFolderItemId } from '../extension';
 import { parseCsvImport } from '../parseCsvImport';
 
 class MockSideTreeDataManager {
@@ -30,7 +30,6 @@ suite('Extension Test Suite', () => {
   test('add/remove keeps tree and search index consistent', async () => {
     const mockManager = new MockSideTreeDataManager();
     const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
-    const rootLabel = localize('sideTree.rootFolder.label', 'SideTree Folder');
 
     const folder = await provider.addItemWithFolderId(0, 'FolderA', true);
     const fileInFolder = await provider.addItemWithFolderId(folder.itemId, 'a.ts', false, 'a.ts');
@@ -39,12 +38,12 @@ suite('Extension Test Suite', () => {
     const savedBeforeRemove = mockManager.lastSavedJson;
 
     const beforeRemove = provider.prepareSerializableNode(0);
-    assert.strictEqual(beforeRemove.length, 3);
+    assert.strictEqual(beforeRemove.length, 2);
 
     provider.removeItem(folder.itemId);
 
     const afterRemove = provider.prepareSerializableNode(0);
-    assert.deepStrictEqual(afterRemove.map((x) => x.name), [rootLabel, 'root.ts']);
+    assert.deepStrictEqual(afterRemove.map((x) => x.name), ['root.ts']);
 
     const searchItems = provider.getSearchItems();
     const remainingIds = new Set(searchItems.map((x) => x.itemId));
@@ -63,7 +62,6 @@ suite('Extension Test Suite', () => {
   test('move and sort operations update order as expected', async () => {
     const mockManager = new MockSideTreeDataManager();
     const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
-    const rootLabel = localize('sideTree.rootFolder.label', 'SideTree Folder');
 
     const itemA = await provider.addItemWithFolderId(0, 'A.ts', false, 'A.ts');
     const itemB = await provider.addItemWithFolderId(0, 'B.ts', false, 'B.ts');
@@ -73,11 +71,11 @@ suite('Extension Test Suite', () => {
     provider.moveItemDown(itemA.itemId);
 
     let order = provider.prepareSerializableNode(0).map((x) => x.name);
-    assert.deepStrictEqual(order, [rootLabel, 'C.ts', 'A.ts', 'B.ts']);
+    assert.deepStrictEqual(order, ['C.ts', 'A.ts', 'B.ts']);
 
     provider.sortItemInFolder(0);
     order = provider.prepareSerializableNode(0).map((x) => x.name);
-    assert.deepStrictEqual(order, ['A.ts', 'B.ts', 'C.ts', rootLabel]);
+    assert.deepStrictEqual(order, ['A.ts', 'B.ts', 'C.ts']);
 
     const folder = await provider.addItemWithFolderId(0, 'Parent', true);
     const child = await provider.addItemWithFolderId(folder.itemId, 'Child.ts', false, 'Child.ts');
@@ -94,7 +92,6 @@ suite('Extension Test Suite', () => {
   test('moveItemsTop preserves relative order of multiple selected items', async () => {
     const mockManager = new MockSideTreeDataManager();
     const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
-    const rootLabel = localize('sideTree.rootFolder.label', 'SideTree Folder');
 
     await provider.addItemWithFolderId(0, 'A.ts', false, 'A.ts');
     const itemB = await provider.addItemWithFolderId(0, 'B.ts', false, 'B.ts');
@@ -104,7 +101,7 @@ suite('Extension Test Suite', () => {
     provider.moveItemsTop([itemB.itemId, itemC.itemId]);
 
     const order = provider.prepareSerializableNode(0).map((x) => x.name);
-    assert.deepStrictEqual(order, [rootLabel, 'B.ts', 'C.ts', 'A.ts', 'D.ts']);
+    assert.deepStrictEqual(order, ['B.ts', 'C.ts', 'A.ts', 'D.ts']);
   });
 
   test('convertToRelative converts only workspace-contained paths', () => {
@@ -205,7 +202,6 @@ suite('Extension Test Suite', () => {
   test('importItemsAfter inserts imported data after the target item', async () => {
     const mockManager = new MockSideTreeDataManager();
     const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
-    const rootLabel = localize('sideTree.rootFolder.label', 'SideTree Folder');
 
     await provider.addItemWithFolderId(0, 'before.ts', false, 'before.ts');
     const target = await provider.addItemWithFolderId(0, 'target.ts', false, 'target.ts');
@@ -222,7 +218,7 @@ suite('Extension Test Suite', () => {
     ]);
 
     const rootRows = provider.prepareSerializableNode(0);
-    assert.deepStrictEqual(rootRows.map((x) => x.name), [rootLabel, 'before.ts', 'target.ts', 'imported.ts', 'after.ts']);
+    assert.deepStrictEqual(rootRows.map((x) => x.name), ['before.ts', 'target.ts', 'imported.ts', 'after.ts']);
   });
 
   test('item description is shown on tree items and preserved in serialization', async () => {
@@ -244,6 +240,48 @@ suite('Extension Test Suite', () => {
     assert.strictEqual(reloaded?.description, 'updated note');
   });
 
+  test('checked state is preserved in serialization', async () => {
+    const mockManager = new MockSideTreeDataManager();
+    const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+
+    const item = await provider.addItemWithFolderId(0, 'checked.ts', false, 'checked.ts');
+    await provider.setItemChecked(item.itemId, true);
+
+    const serialized = provider.prepareSerializableNode(0);
+    const row = serialized.find((x) => x.name === 'checked.ts');
+    assert.strictEqual(row?.checked, true);
+  });
+
+  test('hide checked mode hides checked items from visible children', async () => {
+    const mockManager = new MockSideTreeDataManager();
+    const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+
+    const visible = await provider.addItemWithFolderId(0, 'visible.ts', false, 'visible.ts');
+    const hidden = await provider.addItemWithFolderId(0, 'hidden.ts', false, 'hidden.ts');
+    await provider.setItemChecked(hidden.itemId, true);
+    await provider.setHideCheckedMode(true);
+
+    const rootChildren = await provider.getChildren();
+    assert.ok(rootChildren.some((item) => item.itemId === visible.itemId));
+    assert.ok(!rootChildren.some((item) => item.itemId === hidden.itemId));
+  });
+
+  test('checkbox visibility can be enabled without hiding items', async () => {
+    const mockManager = new MockSideTreeDataManager();
+    const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+
+    const visible = await provider.addItemWithFolderId(0, 'visible.ts', false, 'visible.ts');
+    const checked = await provider.addItemWithFolderId(0, 'checked.ts', false, 'checked.ts');
+    await provider.setItemChecked(checked.itemId, true);
+    await provider.setShowCheckboxes(true);
+
+    const rootChildren = await provider.getChildren();
+    assert.ok(rootChildren.some((item) => item.itemId === visible.itemId));
+    assert.ok(rootChildren.some((item) => item.itemId === checked.itemId));
+    assert.strictEqual(visible.checkboxState, vscode.TreeItemCheckboxState.Unchecked);
+    assert.strictEqual(checked.checkboxState, vscode.TreeItemCheckboxState.Checked);
+  });
+
   test('getExplorerSelection prefers multi-select resources and filters duplicates', () => {
     const first = vscode.Uri.file(path.join('/tmp', 'first.ts'));
     const second = vscode.Uri.file(path.join('/tmp', 'second.ts'));
@@ -259,6 +297,20 @@ suite('Extension Test Suite', () => {
 
     assert.deepStrictEqual(getExplorerSelection(single).map((uri) => uri.fsPath), [single.fsPath]);
     assert.deepStrictEqual(getExplorerSelection(single, [ignored]).map((uri) => uri.fsPath), []);
+  });
+
+  test('getTargetFolderItemId returns the virtual folder id', () => {
+    const folder = new MyTreeItem(10, 'Folder', true, 'virtualFolder');
+
+    assert.strictEqual(getTargetFolderItemId(folder), 10);
+  });
+
+  test('getTargetFolderItemId falls back to parent id for files and root for undefined', () => {
+    const file = new MyTreeItem(11, 'file.ts', false, 'file', undefined, undefined, 'src/file.ts');
+    file.parentId = 7;
+
+    assert.strictEqual(getTargetFolderItemId(file), 7);
+    assert.strictEqual(getTargetFolderItemId(undefined), 0);
   });
 
   test('parseCsvImport reads folder path, relative file path, label, and description', () => {
@@ -304,23 +356,37 @@ suite('Extension Test Suite', () => {
       const mockManager = new MockSideTreeDataManager();
       const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
 
-      const rootFolder = provider.getItemByItemId(1);
-      assert.ok(rootFolder);
-
-      const nestedFolder = await provider.addItemWithFolderId(rootFolder!.itemId, 'Docs', true);
-      await provider.addItemWithFolderId(rootFolder!.itemId, 'top.ts', false, 'src/top.ts', undefined, undefined, undefined, 'top note');
+      const nestedFolder = await provider.addItemWithFolderId(0, 'Docs', true);
+      await provider.addItemWithFolderId(0, 'top.ts', false, 'src/top.ts', undefined, undefined, undefined, 'top note');
       await provider.addItemWithFolderId(nestedFolder.itemId, 'feature,name.ts', false, 'src/feature.ts', undefined, undefined, undefined, 'memo "quoted"');
-      await provider.addLinkedFolderWithFolderId(rootFolder!.itemId, 'linked', tempRoot);
+      await provider.addLinkedFolderWithFolderId(0, 'linked', tempRoot);
 
       const csv = provider.prepareCsvExport();
 
       assert.strictEqual(csv, [
         'Folder,FilePath,Name,Description',
-        ',src/top.ts,top.ts,top note',
-        'Docs,src/feature.ts,"feature,name.ts","memo ""quoted"""'
+        'Docs,src/feature.ts,"feature,name.ts","memo ""quoted"""',
+        ',src/top.ts,top.ts,top note'
       ].join('\n'));
     } finally {
       await fs.promises.rm(tempRoot, { recursive: true, force: true });
     }
+  });
+
+  test('prepareCsvExportForItems flattens selected folders and files', async () => {
+    const mockManager = new MockSideTreeDataManager();
+    const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+
+    const docs = await provider.addItemWithFolderId(0, 'Docs', true);
+    await provider.addItemWithFolderId(docs.itemId, 'guide.ts', false, 'src/guide.ts', undefined, undefined, undefined, 'memo');
+    const top = await provider.addItemWithFolderId(0, 'top.ts', false, 'src/top.ts');
+
+    const csv = provider.prepareCsvExportForItems([docs, top]);
+
+    assert.strictEqual(csv, [
+      'Folder,FilePath,Name,Description',
+      'Docs,src/guide.ts,guide.ts,memo',
+      ',src/top.ts,top.ts,'
+    ].join('\n'));
   });
 });

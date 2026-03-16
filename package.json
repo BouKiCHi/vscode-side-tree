@@ -2,7 +2,7 @@
   "name": "side-tree",
   "displayName": "%sideTree.displayName%",
   "description": "%sideTree.description%",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "publisher": "boukichi",
   "engines": {
     "vscode": "^1.100.0"
@@ -133,6 +133,11 @@
         "title": "%sideTree.command.importJsonFromClipboard.title%"
       },
       {
+        "command": "sideTreeView.importCsvFromClipboard",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.importCsvFromClipboard.title%"
+      },
+      {
         "command": "sideTreeView.replaceWithJsonFile",
         "category": "%sideTree.command.category%",
         "title": "%sideTree.command.replaceWithJsonFile.title%"
@@ -153,6 +158,16 @@
         "title": "%sideTree.command.editDescription.title%"
       },
       {
+        "command": "sideTreeView.checkItems",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.checkItems.title%"
+      },
+      {
+        "command": "sideTreeView.clearCheckedItems",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.clearCheckedItems.title%"
+      },
+      {
         "command": "sideTreeView.copyPath",
         "category": "%sideTree.command.category%",
         "title": "%sideTree.command.copyPath.title%"
@@ -166,6 +181,11 @@
         "command": "sideTreeView.copyJson",
         "category": "%sideTree.command.category%",
         "title": "%sideTree.command.copyJson.title%"
+      },
+      {
+        "command": "sideTreeView.copyCsv",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.copyCsv.title%"
       },
       {
         "command": "sideTreeView.openItem",
@@ -265,6 +285,20 @@
         "command": "sideTreeView.saveAsCsv",
         "category": "%sideTree.command.category%",
         "title": "%sideTree.command.saveAsCsv.title%"
+      },
+      {
+        "command": "sideTreeView.toggleHideCheckedMode",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.toggleCheckMode.title%"
+      },
+      {
+        "command": "sideTreeView.toggleCheckboxes",
+        "category": "%sideTree.command.category%",
+        "title": "%sideTree.command.toggleCheckboxes.title%",
+        "icon": {
+          "dark": "media/check_boxes_dark.svg",
+          "light": "media/check_boxes.svg"
+        }
       }
     ],
     "menus": {
@@ -320,9 +354,29 @@
           "group": "1_modification@6"
         },
         {
+          "command": "sideTreeView.importCsvFile",
+          "when": "(view == sideTreeView || view == sideTreeViewInExplorer) && viewItem == sideTreeVirtualFolderItem",
+          "group": "1_modification@7"
+        },
+        {
           "command": "sideTreeView.importJsonFromClipboard",
           "when": "(view == sideTreeView || view == sideTreeViewInExplorer) && (viewItem == sideTreeVirtualFolderItem || viewItem == sideTreeFileItem || viewItem == sideTreeLinkedFolderItem)",
-          "group": "1_modification@7"
+          "group": "1_modification@8"
+        },
+        {
+          "command": "sideTreeView.importCsvFromClipboard",
+          "when": "(view == sideTreeView || view == sideTreeViewInExplorer) && (viewItem == sideTreeVirtualFolderItem || viewItem == sideTreeFileItem || viewItem == sideTreeLinkedFolderItem)",
+          "group": "1_modification@8.5"
+        },
+        {
+          "command": "sideTreeView.checkItems",
+          "when": "(view == sideTreeView || view == sideTreeViewInExplorer) && (viewItem == sideTreeVirtualFolderItem || viewItem == sideTreeFileItem || viewItem == sideTreeLinkedFolderItem)",
+          "group": "1_modification@9"
+        },
+        {
+          "command": "sideTreeView.clearCheckedItems",
+          "when": "(view == sideTreeView || view == sideTreeViewInExplorer) && (viewItem == sideTreeVirtualFolderItem || viewItem == sideTreeFileItem || viewItem == sideTreeLinkedFolderItem)",
+          "group": "1_modification@10"
         },
         {
           "command": "sideTreeView.copyPath",
@@ -338,6 +392,11 @@
           "command": "sideTreeView.copyJson",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "6_copypath@3"
+        },
+        {
+          "command": "sideTreeView.copyCsv",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "6_copypath@4"
         },
         {
           "command": "sideTreeView.moveItemParent",
@@ -415,6 +474,16 @@
           "command": "sideTreeView.saveAsCsv",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "other@7"
+        },
+        {
+          "command": "sideTreeView.toggleHideCheckedMode",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "other@8"
+        },
+        {
+          "command": "sideTreeView.toggleCheckboxes",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "navigation@4"
         }
       ],
       "editor/title/context": [
