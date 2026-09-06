@@ -27,6 +27,29 @@ class MockSideTreeDataManager {
 }
 
 suite('Extension Test Suite', () => {
+  const ensureVirtualFolderPathForTest = async (provider: MyTreeDataProvider, baseFolderId: number, folderPath?: string): Promise<number> => {
+    const segments = folderPath
+      ?.split(/[\\/]/)
+      .map((segment) => segment.trim())
+      .filter((segment) => segment.length > 0) ?? [];
+
+    let currentFolderId = baseFolderId;
+    for (const segment of segments) {
+      const parent = currentFolderId === 0 ? undefined : provider.getItemByItemId(currentFolderId);
+      const children = await provider.getChildren(parent);
+      const existing = children.find((item) => item.itemType === 'virtualFolder' && item.label === segment);
+      if (existing) {
+        currentFolderId = existing.itemId;
+        continue;
+      }
+
+      const created = await provider.addItemWithFolderId(currentFolderId, segment, true);
+      currentFolderId = created.itemId;
+    }
+
+    return currentFolderId;
+  };
+
   test('add/remove keeps tree and search index consistent', async () => {
     const mockManager = new MockSideTreeDataManager();
     const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
@@ -282,6 +305,91 @@ suite('Extension Test Suite', () => {
     assert.strictEqual(checked.checkboxState, vscode.TreeItemCheckboxState.Checked);
   });
 
+  test('folder checked state is recalculated from imported checked children', async () => {
+    const mockManager = new MockSideTreeDataManager();
+    const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+
+    await provider.importItems(0, [
+      {
+        name: 'Docs',
+        isFolder: true,
+        children: [
+          {
+            name: 'a.ts',
+            isFolder: false,
+            filePath: 'src/a.ts',
+            checked: true,
+            children: []
+          },
+          {
+            name: 'b.ts',
+            isFolder: false,
+            filePath: 'src/b.ts',
+            checked: true,
+            children: []
+          }
+        ]
+      }
+    ]);
+
+    const folder = provider.prepareSerializableNode(0)[0];
+    assert.strictEqual(folder.checked, true);
+  });
+
+  test('checking a folder updates its children and keeps folder checked', async () => {
+    const mockManager = new MockSideTreeDataManager();
+    const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+
+    const folder = await provider.addItemWithFolderId(0, 'Docs', true);
+    const first = await provider.addItemWithFolderId(folder.itemId, 'a.ts', false, 'src/a.ts');
+    const second = await provider.addItemWithFolderId(folder.itemId, 'b.ts', false, 'src/b.ts');
+
+    await provider.setItemChecked(folder.itemId, true);
+
+    assert.strictEqual(provider.getItemByItemId(folder.itemId)?.checked, true);
+    assert.strictEqual(provider.getItemByItemId(first.itemId)?.checked, true);
+    assert.strictEqual(provider.getItemByItemId(second.itemId)?.checked, true);
+  });
+
+  test('csv import marks parent folders checked when all imported children are checked', async () => {
+    const mockManager = new MockSideTreeDataManager();
+    const provider = new MyTreeDataProvider(mockManager as unknown as SideTreeDataManager);
+    const rows = parseCsvImport([
+      'Folder,FilePath,Name,Description,Check',
+      'アドレス,some.txt,some.txt,,true',
+      'アドレス,dir/test.txt,test.txt,,true',
+      'アドレス,some2.txt,some2.txt,,true',
+      'アドレス/テストデータ,dir/test.txt,test.txt,,true',
+      'フォルダ,some.txt,some.txt,,true',
+      'フォルダ,some2.txt,some2.txt,,true',
+      'フォルダ,dir\\test.txt,test.txt,,true',
+      'フォルダ,dir/test.txt,test.txt,,true',
+      'フォルダ/テスト子フォルダ,dir/test.txt,test.txt,,true',
+      'フォルダ/テスト子フォルダ,some.txt,some.txt,,true',
+      'フォルダ/テスト子フォルダ,some2.txt,some2.txt,,true',
+      'フォルダ/新規フォルダ,some.txt,some.txt,,true',
+      'フォルダテスト,dir/test.txt,test.txt,,true'
+    ].join('\n'));
+
+    for (const row of rows) {
+      const folderId = await ensureVirtualFolderPathForTest(provider, 0, row.folderPath);
+      await provider.addItemWithFolderId(folderId, row.name, false, row.filePath, undefined, undefined, undefined, row.description, row.checked ?? false);
+    }
+
+    const rootItems = provider.prepareSerializableNode(0);
+    const addresses = rootItems.find((item) => item.name === 'アドレス');
+    const folder = rootItems.find((item) => item.name === 'フォルダ');
+    const folderTest = rootItems.find((item) => item.name === 'フォルダテスト');
+    const nestedFolder = folder?.children.find((item) => item.name === 'テスト子フォルダ');
+    const newFolder = folder?.children.find((item) => item.name === '新規フォルダ');
+
+    assert.strictEqual(addresses?.checked, true);
+    assert.strictEqual(folder?.checked, true);
+    assert.strictEqual(folderTest?.checked, true);
+    assert.strictEqual(nestedFolder?.checked, true);
+    assert.strictEqual(newFolder?.checked, true);
+  });
+
   test('getExplorerSelection prefers multi-select resources and filters duplicates', () => {
     const first = vscode.Uri.file(path.join('/tmp', 'first.ts'));
     const second = vscode.Uri.file(path.join('/tmp', 'second.ts'));
@@ -325,13 +433,40 @@ suite('Extension Test Suite', () => {
         folderPath: 'A/B',
         filePath: 'src/app.ts',
         name: 'App entry',
-        description: 'main module'
+        description: 'main module',
+        checked: undefined
       },
       {
         folderPath: undefined,
         filePath: 'src/lib/util.ts',
         name: 'util.ts',
-        description: 'helper'
+        description: 'helper',
+        checked: undefined
+      }
+    ]);
+  });
+
+  test('parseCsvImport reads optional check column from arbitrary header position', () => {
+    const rows = parseCsvImport([
+      'Name,Check,Description,FilePath,Folder',
+      'App entry,true,main module,src/app.ts,A/B',
+      'util.ts,false,helper,src/lib/util.ts,'
+    ].join('\n'));
+
+    assert.deepStrictEqual(rows, [
+      {
+        folderPath: 'A/B',
+        filePath: 'src/app.ts',
+        name: 'App entry',
+        description: 'main module',
+        checked: true
+      },
+      {
+        folderPath: undefined,
+        filePath: 'src/lib/util.ts',
+        name: 'util.ts',
+        description: 'helper',
+        checked: false
       }
     ]);
   });
@@ -344,7 +479,8 @@ suite('Extension Test Suite', () => {
         folderPath: 'A/B',
         filePath: 'src/data.ts',
         name: 'label,with,comma',
-        description: 'note "quoted"'
+        description: 'note "quoted"',
+        checked: undefined
       }
     ]);
   });
@@ -358,15 +494,15 @@ suite('Extension Test Suite', () => {
 
       const nestedFolder = await provider.addItemWithFolderId(0, 'Docs', true);
       await provider.addItemWithFolderId(0, 'top.ts', false, 'src/top.ts', undefined, undefined, undefined, 'top note');
-      await provider.addItemWithFolderId(nestedFolder.itemId, 'feature,name.ts', false, 'src/feature.ts', undefined, undefined, undefined, 'memo "quoted"');
+      await provider.addItemWithFolderId(nestedFolder.itemId, 'feature,name.ts', false, 'src/feature.ts', undefined, undefined, undefined, 'memo "quoted"', true);
       await provider.addLinkedFolderWithFolderId(0, 'linked', tempRoot);
 
       const csv = provider.prepareCsvExport();
 
       assert.strictEqual(csv, [
-        'Folder,FilePath,Name,Description',
-        'Docs,src/feature.ts,"feature,name.ts","memo ""quoted"""',
-        ',src/top.ts,top.ts,top note'
+        'Folder,FilePath,Name,Description,Check',
+        'Docs,src/feature.ts,"feature,name.ts","memo ""quoted""",true',
+        ',src/top.ts,top.ts,top note,false'
       ].join('\n'));
     } finally {
       await fs.promises.rm(tempRoot, { recursive: true, force: true });
@@ -379,14 +515,14 @@ suite('Extension Test Suite', () => {
 
     const docs = await provider.addItemWithFolderId(0, 'Docs', true);
     await provider.addItemWithFolderId(docs.itemId, 'guide.ts', false, 'src/guide.ts', undefined, undefined, undefined, 'memo');
-    const top = await provider.addItemWithFolderId(0, 'top.ts', false, 'src/top.ts');
+    const top = await provider.addItemWithFolderId(0, 'top.ts', false, 'src/top.ts', undefined, undefined, undefined, undefined, true);
 
     const csv = provider.prepareCsvExportForItems([docs, top]);
 
     assert.strictEqual(csv, [
-      'Folder,FilePath,Name,Description',
-      'Docs,src/guide.ts,guide.ts,memo',
-      ',src/top.ts,top.ts,'
+      'Folder,FilePath,Name,Description,Check',
+      'Docs,src/guide.ts,guide.ts,memo,false',
+      ',src/top.ts,top.ts,,true'
     ].join('\n'));
   });
 });

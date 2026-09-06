@@ -286,7 +286,7 @@ export function activate(context: vscode.ExtensionContext) {
         const folderId = menuItem ? getTargetFolderItemId(menuItem) : getActiveFolderId();
         for (const row of rows) {
           const targetFolderId = await ensureVirtualFolderPath(folderId, row.folderPath);
-          await treeDataProvider.addItemWithFolderId(targetFolderId, row.name, false, row.filePath, undefined, undefined, undefined, row.description);
+          await treeDataProvider.addItemWithFolderId(targetFolderId, row.name, false, row.filePath, undefined, undefined, undefined, row.description, row.checked ?? false);
         }
 
         vscode.window.showInformationMessage(
@@ -395,7 +395,7 @@ export function activate(context: vscode.ExtensionContext) {
         const folderId = menuItem ? getTargetFolderItemId(menuItem) : getActiveFolderId();
         for (const row of rows) {
           const targetFolderId = await ensureVirtualFolderPath(folderId, row.folderPath);
-          await treeDataProvider.addItemWithFolderId(targetFolderId, row.name, false, row.filePath, undefined, undefined, undefined, row.description);
+          await treeDataProvider.addItemWithFolderId(targetFolderId, row.name, false, row.filePath, undefined, undefined, undefined, row.description, row.checked ?? false);
         }
 
         vscode.window.showInformationMessage(

@@ -1,5 +1,14 @@
 # Change Log
 
+## 0.2.6
+- Added the `Add Symbol Name and Line Number to SideTree`, `Copy Symbol Name and Line Number`, and `Copy Relative Path and Line Number` commands to the line-number context menu.
+- Clarified Japanese command labels by replacing the ambiguous `Name:Line` wording with explicit descriptions.
+
+## 0.2.5
+- Added `Check` to CSV export and optional CSV import so checked state can round-trip, including flexible header order on import.
+- Recalculated virtual-folder checked state from child items after CSV import and check updates.
+- Added a view-title action to append CSV from the clipboard into SideTree.
+
 ## 0.2.4
 - Added CSV clipboard actions for appending into SideTree and copying selected items as CSV.
 - Added folder context-menu CSV import so CSV can be appended directly into the clicked virtual folder.

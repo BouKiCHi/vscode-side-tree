@@ -2,7 +2,7 @@
   "name": "side-tree",
   "displayName": "%sideTree.displayName%",
   "description": "%sideTree.description%",
-  "version": "0.2.4",
+  "version": "0.2.6",
   "publisher": "boukichi",
   "engines": {
     "vscode": "^1.100.0"
@@ -461,6 +461,11 @@
           "group": "other@4"
         },
         {
+          "command": "sideTreeView.importCsvFromClipboard",
+          "when": "view == sideTreeView || view == sideTreeViewInExplorer",
+          "group": "other@4.5"
+        },
+        {
           "command": "sideTreeView.replaceWithJsonFile",
           "when": "view == sideTreeView || view == sideTreeViewInExplorer",
           "group": "other@5"
@@ -504,6 +509,23 @@
         }
       ],
       "editor/context": [
+        {
+          "command": "sideTreeView.addSymbolFromCurrentLine",
+          "when": "resourceScheme == file",
+          "group": "navigation@6"
+        },
+        {
+          "command": "sideTreeView.copySymbolFromCurrentLine",
+          "when": "resourceScheme == file",
+          "group": "navigation@7"
+        },
+        {
+          "command": "sideTreeView.copyRelativePathWithLineFromCurrentLine",
+          "when": "resourceScheme == file",
+          "group": "navigation@8"
+        }
+      ],
+      "editor/lineNumber/context": [
         {
           "command": "sideTreeView.addSymbolFromCurrentLine",
           "when": "resourceScheme == file",

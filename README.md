@@ -1,5 +1,7 @@
 # SideTree (English)
 
+Version: 0.2.6
+
 **SideTree** is a Visual Studio Code extension that displays files in your workspace in a dedicated tree view. It allows you to organize folders differently from the file system, enabling quick access to your files.
 
 ## Features
@@ -20,13 +22,15 @@ Changes for this project are documented in the [CHANGELOG.md](CHANGELOG.md) file
 
 # SideTree
 
+バージョン: 0.2.6
+
 **SideTree** は、ワークスペース内のファイルを専用のツリービューで表示し、ファイルシステムとは異なるフォルダ整理することで、素早く開くことができる Visual Studio Code 拡張機能です。
 
 ## 主な機能
 
 *   **ツリービュー**: エクスプローラ、もしくはサイドバーからアクセスできます。プロジェクトのファイルをドラッグドロップ、またはコンテキストメニューにより追加できます。
 *   **実フォルダ参照**: エクスプローラからディレクトリを追加すると、SideTree 内で再帰的に展開できる参照フォルダとして扱えます。
-*   **JSON / CSV インポート・エクスポート**: SideTree の内容を JSON として保存し、追加インポートまたは置き換えインポートできます。CSV は `Folder,FilePath,Name,Description` 形式で入出力できます。
+*   **JSON / CSV インポート・エクスポート**: SideTree の内容を JSON として保存し、追加インポートまたは置き換えインポートできます。CSV は `Folder,FilePath,Name,Description,Check` 形式でエクスポートでき、インポートでは `Check` 列を任意位置の追加列として取り込めます。
 *   **CSV インポート**: ビュータイトルのアイコンから CSV を読み込み、選択中フォルダ配下に項目を一括追加できます。
 
 ## 使い方
@@ -37,7 +41,7 @@ Changes for this project are documented in the [CHANGELOG.md](CHANGELOG.md) file
 
 *   実フォルダ参照 (`linkedFolder`) は展開時に内容を読み込み、セッション中はキャッシュされます。ディスク上の変更を反映したい場合は SideTree の再読み込みを行ってください。
 *   `JSON ファイルを追加インポート` は選択中の仮想フォルダに追加します。ファイルや実フォルダ参照を選択している場合は、その親の仮想フォルダに追加されます。
-*   `CSV ファイルを追加インポート` は `フォルダ,ファイルパス,名前,説明` の 4 列です。`フォルダ` は `A/B` のように `/` または `\` で階層指定でき、`名前` が空欄のときは `ファイルパス` のファイル名が使われます。
+*   `CSV ファイルを追加インポート` は `フォルダ,ファイルパス,名前,説明` を基本列として扱います。ヘッダ行がある場合は列順を問わず解釈し、`Check` 列があればチェック状態も取り込みます。`フォルダ` は `A/B` のように `/` または `\` で階層指定でき、`名前` が空欄のときは `ファイルパス` のファイル名が使われます。
 
 ## リリースノート
 
